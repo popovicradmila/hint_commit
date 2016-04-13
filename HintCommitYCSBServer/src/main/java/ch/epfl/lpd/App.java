@@ -23,6 +23,9 @@ import main.java.ch.epfl.lpd.store.WriteCommand;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class App {
 
@@ -35,6 +38,7 @@ public class App {
     public static ClientThread client;
     public static boolean vanillaVers = false;
 
+    static Logger logger = LoggerFactory.getLogger(App.class);
 
     public static void main(String args[]) throws Exception {
 
@@ -44,15 +48,15 @@ public class App {
 
         List<NodeInfo> nodes = parseCmdNodesInfo(args);
         for (int i = 0; i < 3; i++)
-            System.out.println("Node [" + i + "] info " + nodes.get(i).toString());
+            logger.info("Node [" + i + "] info " + nodes.get(i).toString());
 
         int thisNodeIndex = Integer.parseInt(args[6]);
         if (thisNodeIndex > 2 || thisNodeIndex < 0)
             throw new Exception("Invalid node index (" + thisNodeIndex + "); must be >= 0 and <= 2!");
-        System.out.println("This node has index: " + thisNodeIndex);
+        logger.info("This node has index: " + thisNodeIndex);
 
         String nettyPort = args[7];
-        System.out.println("Netty listening on: " + nettyPort);
+        logger.info("Netty listening on: " + nettyPort);
 
         /**
          * Instantiate the backend, i.e., the local in-memory store.
@@ -83,7 +87,7 @@ public class App {
          * Now wait for the starting signal...
          *
          * This flag tells the App when it can start executing the trace, i.e.,
-         * when SIGINT was received.
+         * when SIGCONT was received.
          */
 
         CountDownLatch startSignal = new CountDownLatch(1);
@@ -109,7 +113,7 @@ public class App {
         Runtime.getRuntime().addShutdownHook(
             new Thread() {
                 public void run() {
-                    System.out.println("Shutdown Hook is running !");
+                    logger.info("Shutdown Hook is running !");
                 }});
 
         /*
@@ -184,7 +188,7 @@ public class App {
 
     private static void registerSignalHandler(final CountDownLatch signalLatch)
     {
-        Signal.handle(new Signal("INT"),
+        Signal.handle(new Signal("CONT"),
             new SignalHandler() {
                 public void handle(Signal sig) {
                     // decrement the counter to signal that the App can start
