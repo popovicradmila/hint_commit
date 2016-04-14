@@ -1,8 +1,8 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>ch.epfl.app</groupId>
-  <artifactId>hint-commit-server</artifactId>
+  <groupId>hintcommit.driver</groupId>
+  <artifactId>hint-commit-client</artifactId>
   <packaging>jar</packaging>
   <version>1.0-SNAPSHOT</version>
   <name>hint-commit</name>
@@ -17,7 +17,7 @@
       We use an old version of Guava to be compatible with Spark 1.1.
       Check with the spark-cassandra-connector team before upgrading this.
     -->
-    <!-- <guava.version>14.0.1</guava.version> -->
+    <guava.version>14.0.1</guava.version>
     <netty.version>4.0.34.Final</netty.version>
     <!-- <metrics.version>3.0.2</metrics.version> -->
     <!-- <snappy.version>1.0.5</snappy.version> -->
@@ -47,10 +47,24 @@
     </dependency>
 
     <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>${guava.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>log4j</groupId>
       <artifactId>log4j</artifactId>
       <version>${log4j.version}</version>
       <!-- <scope>test</scope> -->
+    </dependency>
+
+    <dependency>
+      <groupId>com.yahoo.ycsb</groupId>
+      <artifactId>root</artifactId>
+      <version>0.8.0</version>
+      <scope>system</scope>
+      <systemPath>${basedir}/target/dependency/core-0.8.0.jar</systemPath>
     </dependency>
 
     <dependency>
