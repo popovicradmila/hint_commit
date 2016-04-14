@@ -45,5 +45,9 @@ public class App {
 		ya.update("", "1", vals);
 		System.out.println(ya.read("", "1", fields, res));
 		System.out.println(ya.read("", "3", fields, res));
+		
+		String albumjson = "{\"privacy\":\"a\", \"photos\":[\"1\",\"2\"]}";
+		Album a = new Album(albumjson);
+		System.out.println(a);
 	}
 }
