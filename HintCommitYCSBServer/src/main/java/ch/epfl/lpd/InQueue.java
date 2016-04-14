@@ -54,8 +54,8 @@ public class InQueue extends Thread{
 					lock.unlock();
 					e1.printStackTrace();
 				}
-    		//for(Iterator<InOutQueueC> it = queue.iterator(); it.hasNext(); ) {
-    		      InOutQueueC entry = queue.peek(); //OVDE
+    		for(Iterator<InOutQueueC> it = queue.iterator(); it.hasNext(); ) {
+    		      InOutQueueC entry = it.next();//queue.peek(); //OVDE
     		      if (safeToDeliver(entry)){
     		    	  queueLock.lock();
         		      queue.remove(entry);
@@ -86,6 +86,7 @@ public class InQueue extends Thread{
 						}
 					lock.unlock();
     		      }
+    		}
     	}
     }
     
