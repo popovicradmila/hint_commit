@@ -13,6 +13,7 @@ public class App {
 
 	public static NettyClient nc;
 	public static RequestExecution re;
+	public static boolean vanillaVers = false;
 	
 	public static void main(String[] args) {
 	    CountDownLatch nettyStartupLatch = new CountDownLatch(1);
@@ -45,5 +46,4 @@ public class App {
 		System.out.println(ya.read("", "1", fields, res));
 		System.out.println(ya.read("", "3", fields, res));
 	}
-
 }

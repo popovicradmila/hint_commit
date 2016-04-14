@@ -113,20 +113,28 @@ public class YcsbAdapter extends DB {
 			ArrayList<Future<String>> futures = executeCommand(command);
 
 			Future<String> hintRSF = futures.get(0);
-			Future<String> commitRSF = futures.get(1);
+			Future<String> commitRSF = null;
+			
+			if (!App.vanillaVers)
+				commitRSF = futures.get(1);
 
 			String hintRS;
-			String commitRS;
+			String commitRS = null;
 			long hintTS;
 			try {
 				hintRS = Uninterruptibles.getUninterruptibly(hintRSF,300L, TimeUnit.MILLISECONDS);
 				//hintRS = hintRSF.getUninterruptibly(300L, TimeUnit.MILLISECONDS);
 				hintTS = System.nanoTime();
-
-				commitRS = Uninterruptibles.getUninterruptibly(commitRSF,300L, TimeUnit.MILLISECONDS); 
+			} catch (TimeoutException e) {
+				System.out.println("  ... hint timed out!");
+				return Status.NOT_FOUND;
+			}
+			try{
+				if (!App.vanillaVers)
+					commitRS = Uninterruptibles.getUninterruptibly(commitRSF,300L, TimeUnit.MILLISECONDS); 
 				//commitRSF.getUninterruptibly(300L,TimeUnit.MILLISECONDS);
 			} catch (TimeoutException e) {
-				System.out.println("  ... timed out!");
+				System.out.println("  ... commit timed out!");
 				return Status.NOT_FOUND;
 			}
 
@@ -147,13 +155,15 @@ public class YcsbAdapter extends DB {
 					return Status.NOT_FOUND;
 				}
 
-			if (commitRS!=null) {
-				// There was both a HINT and a COMMIT..
-				// Let's compare the HINT with the COMMIT
-
-				Notification commitNotification = new Notification("value",commitRS, hintTS);
-
-				divergent = !commitNotification.equals(hintNotification);
+			if (!App.vanillaVers){
+				if (commitRS!=null) {
+					// There was both a HINT and a COMMIT..
+					// Let's compare the HINT with the COMMIT
+	
+					Notification commitNotification = new Notification("value",commitRS, hintTS);
+	
+					divergent = !commitNotification.equals(hintNotification);
+				}
 			}
 			return new TimestampedStatus("", "", hintTS, divergent);
 			
@@ -273,7 +283,9 @@ public class YcsbAdapter extends DB {
 		App.re.setCommand(c);
 		
 		ret.add(pool.submit(App.re.hre));
-		ret.add(pool.submit(App.re.cre));
+		//if running the vanilla version, don't wait for the commit
+		if (!App.vanillaVers)
+			ret.add(pool.submit(App.re.cre));
 		
 		return ret;
 	}

@@ -37,12 +37,13 @@ public class ClientThread
     	if (tokens[0].equals("put"))
     	{
     		WriteCommand c = new WriteCommand(App.store, tokens[1], tokens[2]);
+    		c.execute();
     	}
     	else
 	    	if (tokens[0].equals("get"))
 	    	{
 	    		ReadCommand c = new ReadCommand(App.store, tokens[1]);
-	            c.executeClient(this);
+	            c.execute(this);
 	    	}
     }
     
@@ -50,8 +51,11 @@ public class ClientThread
     	ctx.writeAndFlush("h"+hint+"\r\n");
     }
 
-    public void commit(){
-    	ctx.writeAndFlush("c"+commit+"\r\n");
+    public void commit(boolean equalsHint){
+    	if (!equalsHint)
+    		ctx.writeAndFlush("c"+commit+"\r\n");
+    	else
+    		ctx.writeAndFlush("b"+commit+"\r\n");
 		//printResponse();
 		reset();
     }

@@ -1,3 +1,4 @@
+
 package main.java.ch.epfl.lpd;
 
 import java.io.BufferedReader;
@@ -32,6 +33,7 @@ public class App {
 	public static LinkedList<Command> readCommands = new LinkedList<Command>();
     public static PrintWriter writer;
     public static ClientThread client;
+    public static boolean vanillaVers = false;
 
 
     public static void main(String args[]) throws Exception {
@@ -90,10 +92,11 @@ public class App {
         st = new ServerThread(nettyPort);
         st.start();
 
+        /*
         System.out.println("Awaiting for SIGINT... please send the signal using: kill -INT PID");
         startSignal.await();
         System.out.println("Got SIGINT. Starting...");
-
+         */
 
         PortListener pl = new PortListener();
 		client = new ClientThread();

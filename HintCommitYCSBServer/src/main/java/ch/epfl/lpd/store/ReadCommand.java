@@ -9,26 +9,18 @@ public class ReadCommand extends Command {
 	public ReadCommand(StoreMap map, String arg1){
 		super(map,arg1,null);
 	}
-	
-	public String execute (){
-		/*
-		App.response.append(key);
-		App.response.append(",");
-		App.response.append(map.get(key));
-		App.response.append("\n");
-		*/
-		//System.out.println(key+","+map.get(key));
-		String response = key+","+map.get(key);
-		App.writer.println(response.toString());
-		App.writer.flush();
-		return map.get(key);
-	}
 
-	public void executeClient (ClientThread c){
+	public void execute (ClientThread c){
+		
 		c.key = key;
 		c.hint = map.get(key);
-
-		c.hint();
+		
+		//if running the vanilla version, send just the value currently in the store and return
+		if (App.vanillaVers)
+		{
+			c.hint();
+			return;
+		}
 		
 		App.store.inQueue.queueLock.lock();
 		c.freshPending = App.store.inQueue.getFresh(key);
@@ -38,6 +30,7 @@ public class ReadCommand extends Command {
 		/**/
 		if (c.freshPending!=null)
 		{
+			c.hint();
 			while(c.commit==null)
 				try {
 					c.lock.lock();
@@ -47,14 +40,13 @@ public class ReadCommand extends Command {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
-			c.commit();
+			c.commit(false);
 		}
 		else
 		{
 			c.commit = c.hint;
-			c.commit();
+			c.commit(true);
 		}
-		System.out.println("Stop waiting");
 	}
 	
 	public String toString()

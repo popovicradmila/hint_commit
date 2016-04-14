@@ -51,22 +51,40 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
 
 	@Override
 	public void channelRead(ChannelHandlerContext ctx, Object msg) {
-		if (((String) msg).substring(0, 1).equals("h")) {
+		System.out.println("msg rcd "+(String)msg);
+		String type = ((String) msg).substring(0, 1);
+		switch(type){
+		case "h":
 			nc.hcInstance.hint = ((String) msg).substring(1);
 			nc.hlock.lock();
 			nc.hinted.signal();
 			nc.hlock.unlock();
 			//nc.startTime = System.nanoTime();
-		} else {
-			if (((String) msg).substring(0, 1).equals("c")) {
-				nc.hcInstance.commit = ((String) msg).substring(1);
-				//nc.endTime = System.nanoTime();
-				nc.clock.lock();
-				nc.commited.signal();
-				nc.clock.unlock();
-			} else {
-				System.out.println("Invalid data received");
-			}
+			break;
+		case "c":
+			nc.hcInstance.commit = ((String) msg).substring(1);
+			//nc.endTime = System.nanoTime();
+			nc.clock.lock();
+			nc.commited.signal();
+			nc.clock.unlock();
+			break;
+		case "b":
+			nc.hcInstance.hint = ((String) msg).substring(1);
+			
+			nc.hlock.lock();
+			nc.hinted.signal();
+			nc.hlock.unlock();
+			
+
+			nc.hcInstance.commit = ((String) msg).substring(1);
+			
+			nc.clock.lock();
+			nc.commited.signal();
+			nc.clock.unlock();
+			break;
+		default: 
+			System.out.println("Invalid data received");
+			
 		}
 
 	}

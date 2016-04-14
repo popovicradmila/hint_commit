@@ -39,7 +39,7 @@ import io.netty.util.ReferenceCountUtil;
               //ctx.writeAndFlush(msg);
     		  App.client.run((String)msg, ctx);
     	    } finally {
-    	        ReferenceCountUtil.release(msg);
+    	    	ReferenceCountUtil.release(msg);
     	    }
       }
   
