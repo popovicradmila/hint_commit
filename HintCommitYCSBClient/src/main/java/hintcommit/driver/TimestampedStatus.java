@@ -15,7 +15,7 @@
  * LICENSE file.
  */
 
-package hintcommit.driver;
+package main.java.hintcommit.driver;
 
 import com.yahoo.ycsb.Status;
 

@@ -1,4 +1,4 @@
-package hintcommit.driver;
+package main.java.hintcommit.driver;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;

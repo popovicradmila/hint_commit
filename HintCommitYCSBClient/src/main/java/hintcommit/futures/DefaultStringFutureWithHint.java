@@ -13,7 +13,7 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-package hintcommit.futures;
+package main.java.hintcommit.futures;
 
 public class DefaultStringFutureWithHint extends DefaultStringFuture {
     DefaultStringFuture hintFuture;

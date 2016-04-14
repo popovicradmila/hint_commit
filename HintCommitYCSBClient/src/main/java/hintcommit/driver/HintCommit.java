@@ -1,4 +1,4 @@
-package hintcommit.driver;
+package main.java.hintcommit.driver;
 
 public class HintCommit {
 	public String key;

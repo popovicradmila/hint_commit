@@ -1,4 +1,4 @@
-package hintcommit.driver;
+package main.java.hintcommit.driver;
 
 
 import java.util.Set;

@@ -1,4 +1,4 @@
-package hintcommit.driver;
+package main.java.hintcommit.driver;
 
 /**
  * Copyright (c) 2013-2015 YCSB contributors. All rights reserved.
@@ -18,14 +18,13 @@ package hintcommit.driver;
  */
 
 
-import hintcommit.futures.DefaultStringFuture;
-
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -36,6 +35,7 @@ import javax.management.Notification;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.gson.Gson;
 import com.yahoo.ycsb.ByteArrayByteIterator;
 import com.yahoo.ycsb.ByteIterator;
 import com.yahoo.ycsb.DB;
@@ -61,6 +61,10 @@ public class YcsbAdapter extends DB {
 
 	ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
+	public static NettyClient nc;
+	public static RequestExecution re;
+	public static Gson gson = new Gson();
+	public static boolean vanillaVers = false;
 	private static boolean debug = false;
 	
 
@@ -71,6 +75,18 @@ public class YcsbAdapter extends DB {
 	@Override
 	public void init() throws DBException {
 		System.out.println("\nInitializing the YCSB adapter.\n");
+		CountDownLatch nettyStartupLatch = new CountDownLatch(1);
+			
+		nc = new NettyClient(nettyStartupLatch, Integer.parseInt("8007"));
+		nc.start();
+		re = new RequestExecution(nc);
+			
+		try {
+			nettyStartupLatch.await();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	/**
@@ -115,7 +131,7 @@ public class YcsbAdapter extends DB {
 			Future<String> hintRSF = futures.get(0);
 			Future<String> commitRSF = null;
 			
-			if (!App.vanillaVers)
+			if (!vanillaVers)
 				commitRSF = futures.get(1);
 
 			String hintRS;
@@ -130,7 +146,7 @@ public class YcsbAdapter extends DB {
 				return Status.NOT_FOUND;
 			}
 			try{
-				if (!App.vanillaVers)
+				if (!vanillaVers)
 					commitRS = Uninterruptibles.getUninterruptibly(commitRSF,300L, TimeUnit.MILLISECONDS); 
 				//commitRSF.getUninterruptibly(300L,TimeUnit.MILLISECONDS);
 			} catch (TimeoutException e) {
@@ -155,7 +171,7 @@ public class YcsbAdapter extends DB {
 					return Status.NOT_FOUND;
 				}
 
-			if (!App.vanillaVers){
+			if (!vanillaVers){
 				if (commitRS!=null) {
 					// There was both a HINT and a COMMIT..
 					// Let's compare the HINT with the COMMIT
@@ -251,7 +267,7 @@ public class YcsbAdapter extends DB {
 			}
 
 			String updateCommand = "put,"+key+","+value+"\r\n";
-			App.nc.serverChannel.writeAndFlush(updateCommand);
+			nc.serverChannel.writeAndFlush(updateCommand);
 
 			return Status.OK;
 		} catch (Exception e) {
@@ -280,12 +296,12 @@ public class YcsbAdapter extends DB {
 	
 	public ArrayList<Future<String>> executeCommand(String c){
 		ArrayList<Future<String>> ret = new ArrayList<>();
-		App.re.setCommand(c);
+		re.setCommand(c);
 		
-		ret.add(pool.submit(App.re.hre));
+		ret.add(pool.submit(re.hre));
 		//if running the vanilla version, don't wait for the commit
-		if (!App.vanillaVers)
-			ret.add(pool.submit(App.re.cre));
+		if (!vanillaVers)
+			ret.add(pool.submit(re.cre));
 		
 		return ret;
 	}
