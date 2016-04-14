@@ -1,0 +1,93 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>ch.epfl.app</groupId>
+  <artifactId>hint-commit-server</artifactId>
+  <packaging>jar</packaging>
+  <version>1.0-SNAPSHOT</version>
+  <name>hint-commit</name>
+  <url>http://maven.apache.org</url>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- <java.version>1.6</java.version> -->
+    <log4j.version>1.2.17</log4j.version>
+    <slf4j-log4j12.version>1.7.6</slf4j-log4j12.version>
+    <!--
+      We use an old version of Guava to be compatible with Spark 1.1.
+      Check with the spark-cassandra-connector team before upgrading this.
+    -->
+    <!-- <guava.version>14.0.1</guava.version> -->
+    <netty.version>4.0.34.Final</netty.version>
+    <!-- <metrics.version>3.0.2</metrics.version> -->
+    <!-- <snappy.version>1.0.5</snappy.version> -->
+    <!-- <lz4.version>1.2.0</lz4.version> -->
+    <!-- <hdr.version>2.1.4</hdr.version> -->
+    <!-- test dependency versions -->
+    <!-- <testng.version>6.8.8</testng.version> -->
+    <!-- <assertj.version>1.7.0</assertj.version> -->
+    <!-- <mockito.version>1.10.8</mockito.version> -->
+    <!-- <scassandra.version>0.10.0</scassandra.version> -->
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+      <scope>test</scope>
+    </dependency>
+
+<!--
+-->
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-all</artifactId>
+      <version>${netty.version}</version>
+    </dependency>
+
+    <!--
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-transport</artifactId>
+      <version>${netty.version}</version>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-common</artifactId>
+      <version>${netty.version}</version>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-buffer</artifactId>
+      <version>${netty.version}</version>
+      <optional>true</optional>
+    </dependency>
+-->
+
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-exec</artifactId>
+      <version>1.3</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+       <plugin>
+           <groupId>org.apache.maven.plugins</groupId>
+           <artifactId>maven-compiler-plugin</artifactId>
+           <version>2.3.1</version>
+           <configuration>
+               <source>1.7</source>
+               <target>1.7</target>
+           </configuration>
+       </plugin>
+    </plugins>
+  </build>
+</project>

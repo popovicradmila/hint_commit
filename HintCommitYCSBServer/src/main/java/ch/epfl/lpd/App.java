@@ -30,15 +30,16 @@ public class App {
 	public static StoreMap store;
 	public static LinkedList<Command> commands = new LinkedList<Command>();
 	public static LinkedList<Command> readCommands = new LinkedList<Command>();
-	public static PrintWriter writer;
-	public static ClientThread client;
-	
+    public static PrintWriter writer;
+    public static ClientThread client;
+
+
     public static void main(String args[]) throws Exception {
 
         /**
          * Parse command line arguments.
          */
-    	
+
         List<NodeInfo> nodes = parseCmdNodesInfo(args);
         for (int i = 0; i < 3; i++)
             System.out.println("Node [" + i + "] info " + nodes.get(i).toString());
@@ -48,22 +49,19 @@ public class App {
             throw new Exception("Invalid node index (" + thisNodeIndex + "); must be >= 0 and <= 2!");
         System.out.println("This node has index: " + thisNodeIndex);
 
-        String inputFilePath = args[7];
-        System.out.println("Using input file: " + inputFilePath);
-
-        String outputFilePath = thisNodeIndex + ".out";
-        System.out.println("Using output file: " + outputFilePath);
+        String nettyPort = args[7];
+        System.out.println("Netty listening on: " + nettyPort);
 
         /**
          * Instantiate the backend, i.e., the local in-memory store.
          */
-        
+
         store = new StoreMap();
 
         /**
          * Instantiate point-to-point links to the other nodes.
          */
-        
+
         DatagramSocket mySocket = null;
         try {
 			mySocket = new DatagramSocket(nodes.get(thisNodeIndex).getPort());
@@ -71,46 +69,45 @@ public class App {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-        
+
         NodeInfo me = nodes.get(thisNodeIndex);
         rb = new ReliableBroadcast(mySocket, null, me);
-        
-        rb.ptpLinks = establishPTPLinks(nodes, thisNodeIndex);
-        //parseInputFile(inputFilePath);
 
-	    writer = new PrintWriter(outputFilePath, "UTF-8");
-        
-        /**
+        rb.ptpLinks = establishPTPLinks(nodes, thisNodeIndex);
+
+        writer = new PrintWriter("server.log", "UTF-8");
+
+	    /**
          * Now wait for the starting signal...
          *
          * This flag tells the App when it can start executing the trace, i.e.,
          * when SIGINT was received.
          */
-        
+
         CountDownLatch startSignal = new CountDownLatch(1);
         registerSignalHandler(startSignal);
-       
-        String nettyPort = args[8];
+
         st = new ServerThread(nettyPort);
         st.start();
 
         System.out.println("Awaiting for SIGINT... please send the signal using: kill -INT PID");
         startSignal.await();
         System.out.println("Got SIGINT. Starting...");
-        
-       
+
+
         PortListener pl = new PortListener();
 		client = new ClientThread();
         pl.start();
-        
+
         for (PointToPointLink ptpl:rb.ptpLinks.values())
         	ptpl.start();
-          
-     
-        Runtime.getRuntime().addShutdownHook(new Thread() {  public void run() { System.out.println("Shutdown Hook is running !");}});        
-        
 
-		//client.start();        
+
+        Runtime.getRuntime().addShutdownHook(
+            new Thread() {
+                public void run() {
+                    System.out.println("Shutdown Hook is running !");
+                }});
 
         /*
         for (int i = 0; i < commands.size(); i++) {
@@ -118,13 +115,7 @@ public class App {
         }
         */
 
-
-        /**
-         * TODO: Print to the output file.
-         */
- 
-	writer.close();
-	
+        writer.close();
     }
 
 
@@ -167,7 +158,7 @@ public class App {
 				e.printStackTrace();
     	    }
     	    finally{ }
-    	
+
     }
 
     private static List<NodeInfo> parseCmdNodesInfo(String args[]) throws Exception {
