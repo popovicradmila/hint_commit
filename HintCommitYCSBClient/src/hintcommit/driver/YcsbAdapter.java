@@ -18,6 +18,8 @@ package hintcommit.driver;
  */
 
 
+import hintcommit.futures.DefaultStringFuture;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -32,6 +35,7 @@ import javax.management.Notification;
 
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.yahoo.ycsb.ByteArrayByteIterator;
 import com.yahoo.ycsb.ByteIterator;
 import com.yahoo.ycsb.DB;
@@ -55,11 +59,10 @@ public class YcsbAdapter extends DB {
 	static final String HOST = System.getProperty("host", "127.0.0.1");
 	static int PORT;
 
-	public NettyClient nc;
-	public RequestExecution re;
 	ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
 	private static boolean debug = false;
+	
 
 	/**
 	 * Initialize any state for this DB. Called once per DB instance; there is
@@ -68,8 +71,6 @@ public class YcsbAdapter extends DB {
 	@Override
 	public void init() throws DBException {
 		System.out.println("\nInitializing the YCSB adapter.\n");
-		nc.start();
-		re = new RequestExecution(nc);
 	}
 
 	/**
@@ -109,21 +110,21 @@ public class YcsbAdapter extends DB {
 		boolean divergent = false;
 		try {
 			
-			ArrayList<DefaultStringFuture> futures = executeCommand(command);
+			ArrayList<Future<String>> futures = executeCommand(command);
 
-			DefaultStringFuture hintRSF = futures.get(0);
-			DefaultStringFuture commitRSF = futures.get(1);
+			Future<String> hintRSF = futures.get(0);
+			Future<String> commitRSF = futures.get(1);
 
 			String hintRS;
 			String commitRS;
 			long hintTS;
 			try {
-				hintRS = hintRSF
-						.getUninterruptibly(300L, TimeUnit.MILLISECONDS);
+				hintRS = Uninterruptibles.getUninterruptibly(hintRSF,300L, TimeUnit.MILLISECONDS);
+				//hintRS = hintRSF.getUninterruptibly(300L, TimeUnit.MILLISECONDS);
 				hintTS = System.nanoTime();
 
-				commitRS = commitRSF.getUninterruptibly(300L,
-						TimeUnit.MILLISECONDS);
+				commitRS = Uninterruptibles.getUninterruptibly(commitRSF,300L, TimeUnit.MILLISECONDS); 
+				//commitRSF.getUninterruptibly(300L,TimeUnit.MILLISECONDS);
 			} catch (TimeoutException e) {
 				System.out.println("  ... timed out!");
 				return Status.NOT_FOUND;
@@ -240,7 +241,7 @@ public class YcsbAdapter extends DB {
 			}
 
 			String updateCommand = "put,"+key+","+value+"\r\n";
-			nc.serverChannel.writeAndFlush(updateCommand);
+			App.nc.serverChannel.writeAndFlush(updateCommand);
 
 			return Status.OK;
 		} catch (Exception e) {
@@ -267,12 +268,12 @@ public class YcsbAdapter extends DB {
 		return Status.ERROR;
 	}
 	
-	public ArrayList<DefaultStringFuture> executeCommand(String c){
-		ArrayList<DefaultStringFuture> ret = new ArrayList<>();
-		re.setCommand(c);
+	public ArrayList<Future<String>> executeCommand(String c){
+		ArrayList<Future<String>> ret = new ArrayList<>();
+		App.re.setCommand(c);
 		
-		ret.add((DefaultStringFuture)pool.submit(re.hre));
-		ret.add((DefaultStringFuture)pool.submit(re.cre));
+		ret.add(pool.submit(App.re.hre));
+		ret.add(pool.submit(App.re.cre));
 		
 		return ret;
 	}

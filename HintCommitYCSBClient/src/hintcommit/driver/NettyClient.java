@@ -1,9 +1,5 @@
 package hintcommit.driver;
 
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -23,6 +19,11 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 import javax.net.ssl.SSLException;
 
 
@@ -39,8 +40,14 @@ public class NettyClient extends Thread{
     public Lock hlock = new ReentrantLock();
 	public Condition hinted = hlock.newCondition();
 	public ChannelHandlerContext ctx;
+	private CountDownLatch startupLatch;
 	long startTime;
 	long endTime;
+	
+	public NettyClient(CountDownLatch l, int port){
+		startupLatch = l;
+		this.PORT = port;
+	}
      
     public void run() {
        
@@ -85,6 +92,9 @@ public class NettyClient extends Thread{
         // Start the client.
         ChannelFuture f = b.connect(HOST, PORT).sync();
         serverChannel = f.channel();
+        
+        System.out.println("Netty started");
+        startupLatch.countDown(); 
         
         // Wait until the connection is closed.
         f.channel().closeFuture().sync();

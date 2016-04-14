@@ -45,7 +45,6 @@ public class RequestExecution {
 			// nc.hcInstance.printResponse();
 			// nc.hcInstance.commit = null;
 			// nc.hcInstance.hint = null;
-
 			return nc.hcInstance.hint;
 		}
 	}
@@ -60,7 +59,6 @@ public class RequestExecution {
 	   
 		@Override
 		public String call() throws Exception {
-
 			while (nc.hcInstance.commit == null)
 				try {
 					nc.clock.lock();
@@ -70,7 +68,11 @@ public class RequestExecution {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
-			return nc.hcInstance.commit;
+			String newCommit = nc.hcInstance.commit;
+			nc.hcInstance.commit = null;
+			nc.hcInstance.hint = null;
+
+			return newCommit;
 		}
 	}
 
