@@ -32,6 +32,8 @@ import java.util.concurrent.TimeoutException;
 
 import javax.management.Notification;
 
+import main.java.hintcommit.cache.CacheStore;
+
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -52,19 +54,20 @@ import com.yahoo.ycsb.StringByteIterator;
  */
 public class YcsbAdapter extends DB {
 
-	public static final String HOSTS_PROPERTY = "hosts";
-	public static final String PORT_PROPERTY = "port";
-
 	static final boolean SSL = System.getProperty("ssl") != null;
 	static final String HOST = System.getProperty("host", "127.0.0.1");
+	static int CACHE_CAPACITY = 2;
 	static int PORT;
-
+	
+	public static enum Version {JUST_HINT, HINT_COMMIT_FROM_SERVER, HINT_CACHE}
+	private static Version vers = Version.HINT_CACHE;
+	
 	ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
-	public static NettyClient nc;
-	public static RequestExecution re;
+	public NettyClient nc;
+	public RequestExecution re;
+	public CacheStore cache; 
 	public static Gson gson = new Gson();
-	public static boolean vanillaVers = false;
 	private static boolean debug = false;
 	
 
@@ -78,8 +81,9 @@ public class YcsbAdapter extends DB {
 		CountDownLatch nettyStartupLatch = new CountDownLatch(1);
 			
 		nc = new NettyClient(nettyStartupLatch, Integer.parseInt("8007"));
+		cache = new CacheStore(CACHE_CAPACITY);
 		nc.start();
-		re = new RequestExecution(nc);
+		re = new RequestExecution(nc, cache, vers);
 			
 		try {
 			nettyStartupLatch.await();
@@ -131,7 +135,7 @@ public class YcsbAdapter extends DB {
 			Future<String> hintRSF = futures.get(0);
 			Future<String> commitRSF = null;
 			
-			if (!vanillaVers)
+			if (!vers.equals(Version.JUST_HINT))
 				commitRSF = futures.get(1);
 
 			String hintRS;
@@ -146,7 +150,7 @@ public class YcsbAdapter extends DB {
 				return Status.NOT_FOUND;
 			}
 			try{
-				if (!vanillaVers)
+				if (!vers.equals(Version.JUST_HINT))
 					commitRS = Uninterruptibles.getUninterruptibly(commitRSF,300L, TimeUnit.MILLISECONDS); 
 				//commitRSF.getUninterruptibly(300L,TimeUnit.MILLISECONDS);
 			} catch (TimeoutException e) {
@@ -158,7 +162,7 @@ public class YcsbAdapter extends DB {
 				//return Status.NOT_FOUND;
 			}
 			
-			Notification hintNotification = new Notification("value",hintRS, hintTS);
+			//Notification hintNotification = new Notification("value",hintRS, hintTS);
 
 				if (hintRS != null) {
 					ByteBuffer buffer = ByteBuffer.allocate(Long.SIZE);
@@ -168,19 +172,20 @@ public class YcsbAdapter extends DB {
 				} else {
 					result.put("timestamp",null);
 					result.put("content", null);
-					return Status.NOT_FOUND;
+					//return Status.NOT_FOUND;
 				}
 
-			if (!vanillaVers){
+			if (!vers.equals(Version.JUST_HINT)){
 				if (commitRS!=null) {
 					// There was both a HINT and a COMMIT..
 					// Let's compare the HINT with the COMMIT
 	
-					Notification commitNotification = new Notification("value",commitRS, hintTS);
+					//Notification commitNotification = new Notification("value",commitRS, hintTS);
 	
-					divergent = !commitNotification.equals(hintNotification);
+					//divergent = !commitNotification.equals(hintNotification);
 				}
 			}
+			System.out.println("hint: "+hintRS+",commit: "+commitRS);
 			return new TimestampedStatus("", "", hintTS, divergent);
 			
 		} catch (Exception e) {
@@ -298,10 +303,18 @@ public class YcsbAdapter extends DB {
 		ArrayList<Future<String>> ret = new ArrayList<>();
 		re.setCommand(c);
 		
-		ret.add(pool.submit(re.hre));
-		//if running the vanilla version, don't wait for the commit
-		if (!vanillaVers)
-			ret.add(pool.submit(re.cre));
+		if (vers.equals(Version.JUST_HINT)){
+			ret.add(pool.submit(re.hintRequest));
+		}
+		if (vers.equals(Version.HINT_COMMIT_FROM_SERVER)){
+			ret.add(pool.submit(re.hintRequest));
+			ret.add(pool.submit(re.commitRequest));
+		}
+		if (vers.equals(Version.HINT_CACHE)){
+			ret.add(pool.submit(re.cacheRequest));
+			//hre for just current value in server's map, we consider it a commit
+			ret.add(pool.submit(re.hintRequest));
+		}
 		
 		return ret;
 	}

@@ -36,19 +36,38 @@ public class ClientThread
     	String[] tokens = command.split(",");
     	if (tokens[0].equals("put"))
     	{
-    		WriteCommand c = new WriteCommand(App.store, tokens[1], tokens[2]);
-    		c.execute();
+    		if (tokens.length==3){
+	    		WriteCommand c = new WriteCommand(App.store, tokens[1], tokens[2]);
+	    		c.execute();
+    		}
+    		else
+    		{
+    			sendError("Badly formed command");
+    		}
     	}
     	else
 	    	if (tokens[0].equals("get"))
 	    	{
-	    		ReadCommand c = new ReadCommand(App.store, tokens[1]);
-	            c.execute(this);
+	    		if (tokens.length==2){
+		    		ReadCommand c = new ReadCommand(App.store, tokens[1]);
+		            c.execute(this);
+	    		}
+	    		else
+	    		{
+	    			sendError("Badly formed command");
+	    		}
+	    	}
+	    	else {
+	    		sendError("Unknown command");
 	    	}
     }
     
     public void hint(){
     	ctx.writeAndFlush("h"+hint+"\r\n");
+    }
+    
+    public void sendError(String err){
+    	ctx.writeAndFlush("e"+err+"\r\n");
     }
 
     public void commit(boolean equalsHint){

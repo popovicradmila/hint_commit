@@ -2,17 +2,27 @@ package main.java.hintcommit.driver;
 
 import java.util.concurrent.Callable;
 
+import main.java.hintcommit.cache.CacheStore;
+import main.java.hintcommit.driver.YcsbAdapter.Version;
+
 public class RequestExecution {
 
 	private NettyClient nc;
 	private String command;
-	public HintRequestExecution hre;
-	public CommitRequestExecution cre;
+	public HintRequestExecution hintRequest;
+	public CommitRequestExecution commitRequest;
+	public CacheRequestExecution cacheRequest;
+	public CacheStore cache;
+	public Version vers;
 
-	public RequestExecution(NettyClient nc) {
+	public RequestExecution(NettyClient nc, CacheStore cache, Version vers
+			) {
 		this.nc = nc;
-		hre = new HintRequestExecution(this);
-		cre = new CommitRequestExecution(this);
+		hintRequest = new HintRequestExecution();
+		commitRequest = new CommitRequestExecution();
+		cacheRequest = new CacheRequestExecution();
+		this.cache = cache;
+		this.vers = vers;
 	}
 
 	public void setCommand(String c) {
@@ -21,12 +31,6 @@ public class RequestExecution {
 
 	public class HintRequestExecution implements Callable<String> {
 
-		private RequestExecution re;
-		
-		public HintRequestExecution(RequestExecution re){
-			this.re = re;
-		}
-		
 		@Override
 		public String call() throws Exception {
 
@@ -45,18 +49,20 @@ public class RequestExecution {
 			// nc.hcInstance.printResponse();
 			// nc.hcInstance.commit = null;
 			// nc.hcInstance.hint = null;
-			return nc.hcInstance.hint;
+			if (vers.equals(Version.HINT_CACHE))
+				cache.put(nc.hcInstance.key, nc.hcInstance.hint);	
+			String newHint = nc.hcInstance.hint;		
+			if (vers.equals(Version.HINT_CACHE)||vers.equals(Version.JUST_HINT))
+			{
+				nc.hcInstance.commit = null;
+				nc.hcInstance.hint = null;
+			}
+			return newHint;
 		}
 	}
 
    public class CommitRequestExecution implements Callable<String> {
 
-		private RequestExecution re;
-		
-		public CommitRequestExecution(RequestExecution re){
-			this.re = re;
-		}
-	   
 		@Override
 		public String call() throws Exception {
 			while (nc.hcInstance.commit == null)
@@ -73,6 +79,15 @@ public class RequestExecution {
 			nc.hcInstance.hint = null;
 
 			return newCommit;
+		}
+	}
+   
+   public class CacheRequestExecution implements Callable<String> {
+
+		@Override
+		public String call() throws Exception {
+			String key = command.split(",")[1];
+			return cache.get(key);
 		}
 	}
 

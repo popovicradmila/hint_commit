@@ -1,8 +1,6 @@
 
 package main.java.ch.epfl.lpd;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.PrintWriter;
 import java.net.DatagramSocket;
 import java.net.SocketException;
@@ -17,14 +15,14 @@ import main.java.ch.epfl.lpd.net.PointToPointLink;
 import main.java.ch.epfl.lpd.net.PortListener;
 import main.java.ch.epfl.lpd.net.ReliableBroadcast;
 import main.java.ch.epfl.lpd.store.Command;
-import main.java.ch.epfl.lpd.store.ReadCommand;
 import main.java.ch.epfl.lpd.store.StoreMap;
-import main.java.ch.epfl.lpd.store.WriteCommand;
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
+
 
 
 public class App {
@@ -36,7 +34,7 @@ public class App {
 	public static LinkedList<Command> readCommands = new LinkedList<Command>();
     public static PrintWriter writer;
     public static ClientThread client;
-    public static boolean vanillaVers = false;
+    public static boolean vanillaVers = true;
 
     static Logger logger = LoggerFactory.getLogger(App.class);
 
@@ -80,9 +78,9 @@ public class App {
         rb = new ReliableBroadcast(mySocket, null, me);
 
         rb.ptpLinks = establishPTPLinks(nodes, thisNodeIndex);
-
+        
         writer = new PrintWriter("server.log", "UTF-8");
-
+        
 	    /**
          * Now wait for the starting signal...
          *
@@ -94,6 +92,7 @@ public class App {
         registerSignalHandler(startSignal);
 
         st = new ServerThread(nettyPort);
+        
         st.start();
 
         /*
@@ -103,7 +102,9 @@ public class App {
          */
 
         PortListener pl = new PortListener();
+        
 		client = new ClientThread();
+		
         pl.start();
 
         for (PointToPointLink ptpl:rb.ptpLinks.values())
@@ -137,35 +138,6 @@ public class App {
             links.put(i,new PointToPointLink(nodes.get(i), nodes.get(index)));
         }
         return links;
-    }
-
-    private static void parseInputFile(String path) throws Exception {
-    	try {
-        	BufferedReader br = new BufferedReader(new FileReader(path));
-    	    for(String line; (line = br.readLine()) != null; ) {
-    	    	String[] tokens = line.split(",");
-    	    	if (tokens[0].equals("put"))
-    	    	{
-    	    		WriteCommand c = new WriteCommand(store, tokens[1], tokens[2]);
-    	    		commands.add(c);
-    	    	}
-    	    	else
-	    	    	if (tokens[0].equals("get"))
-	    	    	{
-	    	    		ReadCommand c = new ReadCommand(store, tokens[1]);
-	    	    		readCommands.add(c);
-	    	    	}
-	    	    	else
-	    	    	{
-
-	    	    	}
-    	    }
-    	}
-    	    catch (Exception e){
-				e.printStackTrace();
-    	    }
-    	    finally{ }
-
     }
 
     private static List<NodeInfo> parseCmdNodesInfo(String args[]) throws Exception {

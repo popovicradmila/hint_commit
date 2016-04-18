@@ -51,7 +51,6 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
 
 	@Override
 	public void channelRead(ChannelHandlerContext ctx, Object msg) {
-		System.out.println("msg rcd "+(String)msg);
 		String type = ((String) msg).substring(0, 1);
 		switch(type){
 		case "h":
