@@ -18,9 +18,9 @@ package main.java.hintcommit.driver;
  */
 
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
@@ -30,15 +30,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import javax.management.Notification;
-
 import main.java.hintcommit.cache.CacheStore;
 
+import com.google.common.collect.Multiset.Entry;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.gson.Gson;
-import com.yahoo.ycsb.ByteArrayByteIterator;
 import com.yahoo.ycsb.ByteIterator;
 import com.yahoo.ycsb.DB;
 import com.yahoo.ycsb.DBException;
@@ -162,16 +160,20 @@ public class HintCommitClient extends DB {
 				//return Status.NOT_FOUND;
 			}
 
-			//Notification hintNotification = new Notification("value",hintRS, hintTS);
+			Post hintPost = new Post(hintRS, gson);
 
 				if (hintRS != null) {
-					ByteBuffer buffer = ByteBuffer.allocate(Long.SIZE);
-				    buffer.putLong(hintTS);
-					result.put("timestamp", new ByteArrayByteIterator(buffer.array()));
-					result.put("content", new StringByteIterator(hintRS));
+					result.put("id", new StringByteIterator(hintPost.getId()));
+					result.put("type", new StringByteIterator(hintPost.getType().toString()));
+					result.put("content", new StringByteIterator(hintPost.getContent()));
+					result.put("timestamp", new StringByteIterator(hintPost.getTimestamp()));
+					result.put("author", new StringByteIterator(hintPost.getAuthor()));
 				} else {
-					result.put("timestamp",null);
+					result.put("id", null);
+					result.put("type", null);
 					result.put("content", null);
+					result.put("timestamp", null);
+					result.put("author", null);
 					//return Status.NOT_FOUND;
 				}
 
@@ -180,9 +182,9 @@ public class HintCommitClient extends DB {
 					// There was both a HINT and a COMMIT..
 					// Let's compare the HINT with the COMMIT
 
-					//Notification commitNotification = new Notification("value",commitRS, hintTS);
+					Post commitPost = new Post(commitRS, gson);
 
-					//divergent = !commitNotification.equals(hintNotification);
+					divergent = !commitPost.equals(hintPost);
 				}
 			}
 			System.out.println("hint: "+hintRS+",commit: "+commitRS);
@@ -263,15 +265,32 @@ public class HintCommitClient extends DB {
 			HashMap<String, ByteIterator> values) {
 		System.out.println("Inserting " + key);
 
+		Post p =  new Post();
+		p.setId(key);		
 		try {
-			String value = "";
 			// Add fields
-			for (Map.Entry<String, ByteIterator> entry : values.entrySet()) {
-				ByteIterator byteIterator = entry.getValue();
-				value = byteIterator.toString();
-			}
+			
+			Iterator<Map.Entry<String, ByteIterator>> valuesIt = values.entrySet().iterator();
+			
+			Map.Entry<String, ByteIterator> entry = valuesIt.next();
+			ByteIterator byteIterator = entry.getValue();
+			p.setType(byteIterator.toString());
+			
+			entry = valuesIt.next();
+			byteIterator = entry.getValue();
+			p.setContent(byteIterator.toString());
+			
+			entry = valuesIt.next();
+			byteIterator = entry.getValue();
+			p.setAuthor(byteIterator.toString());
 
-			String updateCommand = "put,"+key+","+value+"\r\n";
+			entry = valuesIt.next();
+			byteIterator = entry.getValue();
+			p.setTimestamp(byteIterator.toString());
+			
+			String postJson = p.toJson(gson);
+
+			String updateCommand = "put,"+key+","+postJson+"\r\n";
 			nc.serverChannel.writeAndFlush(updateCommand);
 
 			return Status.OK;

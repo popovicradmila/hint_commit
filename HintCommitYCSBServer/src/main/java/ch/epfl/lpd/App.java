@@ -42,8 +42,8 @@ public class App {
 
         /**
          * Parse command line arguments.
-         */
-
+         */    	
+    	
         List<NodeInfo> nodes = parseCmdNodesInfo(args);
         for (int i = 0; i < 3; i++)
             logger.info("Node [" + i + "] info " + nodes.get(i).toString());
