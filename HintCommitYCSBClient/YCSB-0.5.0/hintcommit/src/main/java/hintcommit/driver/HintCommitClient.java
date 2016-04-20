@@ -42,6 +42,7 @@ import com.yahoo.ycsb.DB;
 import com.yahoo.ycsb.DBException;
 import com.yahoo.ycsb.Status;
 import com.yahoo.ycsb.StringByteIterator;
+import com.yahoo.ycsb.TimestampedStatus;
 
 /**
  * Cassandra 2.x CQL client.
@@ -51,290 +52,315 @@ import com.yahoo.ycsb.StringByteIterator;
  * @author cmatser
  */
 public class HintCommitClient extends DB {
+    static final boolean SSL            = System.getProperty("ssl") != null;
+    static final String  HOST           = System.getProperty("host", "127.0.0.1");
+    static int           CACHE_CAPACITY = 2;
+    static int           PORT;
 
-	static final boolean SSL = System.getProperty("ssl") != null;
-	static final String HOST = System.getProperty("host", "127.0.0.1");
-	static int CACHE_CAPACITY = 2;
-	static int PORT;
+    public static enum Version { JUST_HINT, HINT_COMMIT_FROM_SERVER, HINT_CACHE }
+    private static Version vers = Version.HINT_CACHE;
 
-	public static enum Version {JUST_HINT, HINT_COMMIT_FROM_SERVER, HINT_CACHE}
-	private static Version vers = Version.JUST_HINT;
+    ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
-	ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
-
-	public NettyClient nc;
-	public RequestExecution re;
-	public CacheStore cache;
-	public static Gson gson = new Gson();
-	private static boolean debug = false;
+    public NettyClient      nc;
+    public RequestExecution re;
+    public CacheStore       cache;
+    public static Gson      gson  = new Gson();
+    private static boolean  debug = false;
 
 
-	/**
-	 * Initialize any state for this DB. Called once per DB instance; there is
-	 * one DB instance per client thread.
-	 */
-	@Override
-	public void init() throws DBException {
-		System.out.println("\nInitializing the YCSB adapter.\n");
-		CountDownLatch nettyStartupLatch = new CountDownLatch(1);
+    /**
+     * Initialize any state for this DB. Called once per DB instance; there is
+     * one DB instance per client thread.
+     */
+    @Override
+    public void init() throws DBException
+    {
+        System.out.println("\nInitializing the YCSB adapter.\n");
+        CountDownLatch nettyStartupLatch = new CountDownLatch(1);
 
-		nc = new NettyClient(nettyStartupLatch, Integer.parseInt("17000"));
-		cache = new CacheStore(CACHE_CAPACITY);
-		nc.start();
-		re = new RequestExecution(nc, cache, vers);
+        nc    = new NettyClient(nettyStartupLatch, Integer.parseInt("17000"));
+        cache = new CacheStore(CACHE_CAPACITY);
+        nc.start();
+        re = new RequestExecution(nc, cache, vers);
 
-		try {
-			nettyStartupLatch.await();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
+        try {
+            nettyStartupLatch.await();
+        }
+        catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
 
-	/**
-	 * Cleanup any state for this DB. Called once per DB instance; there is one
-	 * DB instance per client thread.
-	 */
-	@Override
-	public void cleanup() throws DBException {
-		System.out.println("Cleaning up YCSB adapter.");
-	}
+    /**
+     * Cleanup any state for this DB. Called once per DB instance; there is one
+     * DB instance per client thread.
+     */
+    @Override
+    public void cleanup() throws DBException
+    {
+        System.out.println("Cleaning up YCSB adapter.");
+    }
 
-	/**
-	 * Read a record from the database. Each field/value pair from the result
-	 * will be stored in a HashMap.
-	 *
-	 * @param table
-	 *            The name of the table
-	 * @param key
-	 *            The record key of the record to read.
-	 * @param fields
-	 *            The list of fields to read, or null for all of them
-	 * @param result
-	 *            A HashMap of field/value pairs for the result
-	 * @return Zero on success, a non-zero error code on error
-	 */
-	@Override
-	public Status read(String table, String key, Set<String> fields,
-			HashMap<String, ByteIterator> result) {
-		String readCommand = "get," + key + "\r\n";
-		System.out.println("Reading " + key);
+    /**
+     * Read a record from the database. Each field/value pair from the result
+     * will be stored in a HashMap.
+     *
+     * @param table
+     *            The name of the table
+     * @param key
+     *            The record key of the record to read.
+     * @param fields
+     *            The list of fields to read, or null for all of them
+     * @param result
+     *            A HashMap of field/value pairs for the result
+     * @return Zero on success, a non-zero error code on error
+     */
+    @Override
+    public Status read(String table, String key, Set<String> fields,
+                       HashMap<String, ByteIterator> result)
+    {
+        String readCommand = "get," + key + "\r\n";
 
-		return read_and_compare(readCommand, result);
-	}
+        System.out.println("Reading " + key);
 
-	public Status read_and_compare(String command,
-			HashMap<String, ByteIterator> result) {
-		boolean divergent = false;
-		try {
+        return read_and_compare(readCommand, result);
+    }
 
-			ArrayList<Future<String>> futures = executeCommand(command);
+    public Status read_and_compare(String command,
+                                   HashMap<String, ByteIterator> result)
+    {
+        boolean divergent = false;
 
-			Future<String> hintRSF = futures.get(0);
-			Future<String> commitRSF = null;
+        try {
+            ArrayList<Future<String> > futures = executeCommand(command);
 
-			if (!vers.equals(Version.JUST_HINT))
-				commitRSF = futures.get(1);
+            Future<String> hintRSF   = futures.get(0);
+            Future<String> commitRSF = null;
 
-			String hintRS;
-			String commitRS = null;
-			long hintTS;
-			try {
-				hintRS = Uninterruptibles.getUninterruptibly(hintRSF,300L, TimeUnit.MILLISECONDS);
-				//hintRS = hintRSF.getUninterruptibly(300L, TimeUnit.MILLISECONDS);
-				hintTS = System.nanoTime();
-			} catch (TimeoutException e) {
-				System.out.println("  ... hint timed out!");
-				return Status.NOT_FOUND;
-			}
-			try{
-				if (!vers.equals(Version.JUST_HINT))
-					commitRS = Uninterruptibles.getUninterruptibly(commitRSF,300L, TimeUnit.MILLISECONDS);
-				//commitRSF.getUninterruptibly(300L,TimeUnit.MILLISECONDS);
-			} catch (TimeoutException e) {
-				System.out.println("  ... commit timed out!");
-				return Status.NOT_FOUND;
-			}
+            if (!vers.equals(Version.JUST_HINT))
+            {
+                commitRSF = futures.get(1);
+            }
 
-			if (hintRS==null) {
-				//return Status.NOT_FOUND;
-			}
+            String hintRS;
+            String commitRS = null;
+            long   hintTS;
+            try {
+                hintRS = Uninterruptibles.getUninterruptibly(hintRSF, 300L, TimeUnit.MILLISECONDS);
+                //hintRS = hintRSF.getUninterruptibly(300L, TimeUnit.MILLISECONDS);
+                hintTS = System.nanoTime();
+            }
+            catch (TimeoutException e) {
+                System.out.println("  ... hint timed out!");
+                return Status.NOT_FOUND;
+            }
+            try{
+                if (!vers.equals(Version.JUST_HINT))
+                {
+                    commitRS = Uninterruptibles.getUninterruptibly(commitRSF, 300L, TimeUnit.MILLISECONDS);
+                }
+                //commitRSF.getUninterruptibly(300L,TimeUnit.MILLISECONDS);
+            }
+            catch (TimeoutException e) {
+                System.out.println("  ... commit timed out!");
+                return Status.NOT_FOUND;
+            }
 
-			Post hintPost = new Post(hintRS, gson);
+            Post hintPost;
 
-				if (hintRS != null) {
-					result.put("id", new StringByteIterator(hintPost.getId()));
-					result.put("type", new StringByteIterator(hintPost.getType().toString()));
-					result.put("content", new StringByteIterator(hintPost.getContent()));
-					result.put("timestamp", new StringByteIterator(hintPost.getTimestamp()));
-					result.put("author", new StringByteIterator(hintPost.getAuthor()));
-				} else {
-					result.put("id", null);
-					result.put("type", null);
-					result.put("content", null);
-					result.put("timestamp", null);
-					result.put("author", null);
-					//return Status.NOT_FOUND;
-				}
+            if (hintRS == null)
+            {
+                System.out.println("Cache miss..");
+                hintPost = new Post();
+            } else {
+                System.out.println("Cache hit..");
+                 hintPost = new Post(hintRS, gson);
+            }
 
-			if (!vers.equals(Version.JUST_HINT)){
-				if (commitRS!=null) {
-					// There was both a HINT and a COMMIT..
-					// Let's compare the HINT with the COMMIT
+            if (!vers.equals(Version.JUST_HINT))
+            {
+                if (commitRS != null)
+                {
+                    // There was both a HINT and a COMMIT..
+                    // Let's compare the HINT with the COMMIT
 
-					Post commitPost = new Post(commitRS, gson);
+                    Post commitPost = new Post(commitRS, gson);
 
-					divergent = !commitPost.equals(hintPost);
-				}
-			}
-			System.out.println("hint: "+hintRS+",commit: "+commitRS);
-			return new TimestampedStatus("", "", hintTS, divergent);
+                    result.put("id", new StringByteIterator(commitPost.getId()));
+                    result.put("type", new StringByteIterator(commitPost.getType().toString()));
+                    result.put("content", new StringByteIterator(commitPost.getContent()));
+                    result.put("timestamp", new StringByteIterator(commitPost.getTimestamp()));
+                    result.put("author", new StringByteIterator(commitPost.getAuthor()));
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println("Error reading..");
-			return Status.ERROR;
-		}
-	}
+                    divergent = !commitPost.equals(hintPost);
 
-	/**
-	 * Perform a range scan for a set of records in the database. Each
-	 * field/value pair from the result will be stored in a HashMap.
-	 *
-	 * Cassandra CQL uses "token" method for range scan which doesn't always
-	 * yield intuitive results.
-	 *
-	 * @param table
-	 *            The name of the table
-	 * @param startkey
-	 *            The record key of the first record to read.
-	 * @param recordcount
-	 *            The number of records to read
-	 * @param fields
-	 *            The list of fields to read, or null for all of them
-	 * @param result
-	 *            A Vector of HashMaps, where each HashMap is a set field/value
-	 *            pairs for one record
-	 * @return Zero on success, a non-zero error code on error
-	 */
-	@Override
-	public Status scan(String table, String startkey, int recordcount,
-			Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
-		System.out.println("Scanning from " + startkey);
-		System.out.println("Error: scan not implemented!");
+                    /** Ensure some form of cache coherence */
+                    if (divergent == true) {
+                        cache.put(commitPost.getId(), commitPost.toJson(gson));
+                    }
+                }
+            }
 
-		return Status.ERROR;
-	}
 
-	/**
-	 * Update a record in the database. Any field/value pairs in the specified
-	 * values HashMap will be written into the record with the specified record
-	 * key, overwriting any existing values with the same field name.
-	 *
-	 * @param table
-	 *            The name of the table
-	 * @param key
-	 *            The record key of the record to write.
-	 * @param values
-	 *            A HashMap of field/value pairs to update in the record
-	 * @return Zero on success, a non-zero error code on error
-	 */
-	@Override
-	public Status update(String table, String key,
-			HashMap<String, ByteIterator> values) {
-		System.out.println("Updating " + key);
-		// Insert and updates provide the same functionality
-		return insert(table, key, values);
-	}
+            System.out.println("Divergent: " + divergent);
+            return new TimestampedStatus("", "", hintTS, divergent);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Error reading..");
+            return Status.ERROR;
+        }
+    }
 
-	/**
-	 * Insert a record in the database. Any field/value pairs in the specified
-	 * values HashMap will be written into the record with the specified record
-	 * key.
-	 *
-	 * @param table
-	 *            The name of the table
-	 * @param key
-	 *            The record key of the record to insert.
-	 * @param values
-	 *            A HashMap of field/value pairs to insert in the record
-	 * @return Zero on success, a non-zero error code on error
-	 */
-	@Override
-	public Status insert(String table, String key,
-			HashMap<String, ByteIterator> values) {
-		System.out.println("Inserting " + key);
+    /**
+     * Perform a range scan for a set of records in the database. Each
+     * field/value pair from the result will be stored in a HashMap.
+     *
+     * Cassandra CQL uses "token" method for range scan which doesn't always
+     * yield intuitive results.
+     *
+     * @param table
+     *            The name of the table
+     * @param startkey
+     *            The record key of the first record to read.
+     * @param recordcount
+     *            The number of records to read
+     * @param fields
+     *            The list of fields to read, or null for all of them
+     * @param result
+     *            A Vector of HashMaps, where each HashMap is a set field/value
+     *            pairs for one record
+     * @return Zero on success, a non-zero error code on error
+     */
+    @Override
+    public Status scan(String table, String startkey, int recordcount,
+                       Set<String> fields, Vector<HashMap<String, ByteIterator> > result)
+    {
+        System.out.println("Scanning from " + startkey);
+        System.out.println("Error: scan not implemented!");
 
-		Post p =  new Post();
-		p.setId(key);
-		try {
-			// Add fields
+        return Status.ERROR;
+    }
 
-			Iterator<Map.Entry<String, ByteIterator>> valuesIt = values.entrySet().iterator();
+    /**
+     * Update a record in the database. Any field/value pairs in the specified
+     * values HashMap will be written into the record with the specified record
+     * key, overwriting any existing values with the same field name.
+     *
+     * @param table
+     *            The name of the table
+     * @param key
+     *            The record key of the record to write.
+     * @param values
+     *            A HashMap of field/value pairs to update in the record
+     * @return Zero on success, a non-zero error code on error
+     */
+    @Override
+    public Status update(String table, String key,
+                         HashMap<String, ByteIterator> values)
+    {
+        System.out.println("Updating " + key);
+        // Insert and updates provide the same functionality
+        return insert(table, key, values);
+    }
 
-			Map.Entry<String, ByteIterator> entry = valuesIt.next();
-			ByteIterator byteIterator = entry.getValue();
-			p.setType(byteIterator.toString());
+    /**
+     * Insert a record in the database. Any field/value pairs in the specified
+     * values HashMap will be written into the record with the specified record
+     * key.
+     *
+     * @param table
+     *            The name of the table
+     * @param key
+     *            The record key of the record to insert.
+     * @param values
+     *            A HashMap of field/value pairs to insert in the record
+     * @return Zero on success, a non-zero error code on error
+     */
+    @Override
+    public Status insert(String table, String key,
+                         HashMap<String, ByteIterator> values)
+    {
+        System.out.println("Inserting " + key);
 
-			entry = valuesIt.next();
-			byteIterator = entry.getValue();
-			p.setContent(byteIterator.toString());
+        Post p = new Post();
+        p.setId(key);
+        try {
+            // Add fields
 
-			entry = valuesIt.next();
-			byteIterator = entry.getValue();
-			p.setAuthor(byteIterator.toString());
+            Iterator<Map.Entry<String, ByteIterator> > valuesIt = values.entrySet().iterator();
 
-			entry = valuesIt.next();
-			byteIterator = entry.getValue();
-			p.setTimestamp(byteIterator.toString());
+            Map.Entry<String, ByteIterator> entry = valuesIt.next();
+            ByteIterator byteIterator             = entry.getValue();
+            p.setType(byteIterator.toString());
 
-			String postJson = p.toJson(gson);
+            entry        = valuesIt.next();
+            byteIterator = entry.getValue();
+            p.setContent(byteIterator.toString());
 
-			String updateCommand = "put," + key + "," + postJson + "\r\n";
-			nc.serverChannel.writeAndFlush(updateCommand);
+            entry        = valuesIt.next();
+            byteIterator = entry.getValue();
+            p.setAuthor(byteIterator.toString());
 
-			return Status.OK;
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+            entry        = valuesIt.next();
+            byteIterator = entry.getValue();
+            p.setTimestamp(byteIterator.toString());
 
-		return Status.ERROR;
-	}
+            String postJson = p.toJson(gson);
 
-	/**
-	 * Delete a record from the database.
-	 *
-	 * @param table
-	 *            The name of the table
-	 * @param key
-	 *            The record key of the record to delete.
-	 * @return Zero on success, a non-zero error code on error
-	 */
-	@Override
-	public Status delete(String table, String key) {
-		System.out.println("Deleting key: " + key);
-		System.out.println("Error: delete not implemented!");
+            String updateCommand = "put," + key + "," + postJson + "\r\n";
+            nc.serverChannel.writeAndFlush(updateCommand);
 
-		return Status.ERROR;
-	}
+            return Status.OK;
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
 
-	public ArrayList<Future<String>> executeCommand(String c){
-		ArrayList<Future<String>> ret = new ArrayList<Future<String>>();
-		re.setCommand(c);
+        return Status.ERROR;
+    }
 
-		if (vers.equals(Version.JUST_HINT)){
-			ret.add(pool.submit(re.hintRequest));
-		}
-		if (vers.equals(Version.HINT_COMMIT_FROM_SERVER)){
-			ret.add(pool.submit(re.hintRequest));
-			ret.add(pool.submit(re.commitRequest));
-		}
-		if (vers.equals(Version.HINT_CACHE)){
-			ret.add(pool.submit(re.cacheRequest));
-			//hre for just current value in server's map, we consider it a commit
-			ret.add(pool.submit(re.hintRequest));
-		}
+    /**
+     * Delete a record from the database.
+     *
+     * @param table
+     *            The name of the table
+     * @param key
+     *            The record key of the record to delete.
+     * @return Zero on success, a non-zero error code on error
+     */
+    @Override
+    public Status delete(String table, String key)
+    {
+        System.out.println("Deleting key: " + key);
+        System.out.println("Error: delete not implemented!");
 
-		return ret;
-	}
+        return Status.ERROR;
+    }
+
+    public ArrayList<Future<String> > executeCommand(String c)
+    {
+        ArrayList<Future<String> > ret = new ArrayList<Future<String> >();
+        re.setCommand(c);
+
+        if (vers.equals(Version.JUST_HINT))
+        {
+            ret.add(pool.submit(re.hintRequest));
+        }
+        if (vers.equals(Version.HINT_COMMIT_FROM_SERVER))
+        {
+            ret.add(pool.submit(re.hintRequest));
+            ret.add(pool.submit(re.commitRequest));
+        }
+        if (vers.equals(Version.HINT_CACHE))
+        {
+            ret.add(pool.submit(re.cacheRequest));
+            //hre for just current value in server's map, we consider it a commit
+            ret.add(pool.submit(re.hintRequest));
+        }
+
+        return ret;
+    }
 }

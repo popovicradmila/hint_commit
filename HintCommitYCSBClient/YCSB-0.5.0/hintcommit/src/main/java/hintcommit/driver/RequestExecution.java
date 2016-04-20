@@ -96,7 +96,14 @@ public class RequestExecution {
         {
             String key = command.split(",")[1];
 
-            return cache.get(key);
+            String res = cache.get(key);
+            if (res == null) {
+                // Cache miss: we have to go to the backend
+                // res =
+                return res;
+            } else {
+                return res;
+            }
         }
     }
 }

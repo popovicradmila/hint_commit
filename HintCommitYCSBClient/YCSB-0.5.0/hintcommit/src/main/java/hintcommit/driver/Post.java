@@ -3,20 +3,20 @@ package main.java.hintcommit.driver;
 import com.google.gson.Gson;
 
 public class Post {
-    private String id;
-    private String type;
-    private String content;
-    private String timestamp;
-    private String author;
+    private String id = null;
+    private String type = null;
+    private String content = null;
+    private String timestamp = null;
+    private String author = null;
 
     public Post()
     {
+        // empty post ..
     }
 
     public Post(String json, Gson gson)
     {
         super();
-        System.out.println("Deserializing post: " + json);
         Post a = gson.fromJson(json, Post.class);
         this.author    = a.author;
         this.id        = a.id;
@@ -50,13 +50,6 @@ public class Post {
         else if (other.id != null)
         {
             id = other.id;
-        }
-
-        if (result != true)
-        {
-            System.out.println("*      Diverged!!!!!!" + " || " + id);
-            System.out.println(this.content + " != \n" + other.content + "\n");
-            System.out.println(this.timestamp + " != \n" + other.timestamp);
         }
 
         return result;
