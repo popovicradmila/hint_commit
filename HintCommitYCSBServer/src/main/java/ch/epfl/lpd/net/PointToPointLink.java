@@ -18,6 +18,9 @@ import main.java.ch.epfl.lpd.App;
 import main.java.ch.epfl.lpd.NodeInfo;
 import main.java.ch.epfl.lpd.net.ProtocolMsg.Ack;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class PointToPointLink extends Thread
 {
@@ -33,9 +36,10 @@ public class PointToPointLink extends Thread
     private final Lock lock = new ReentrantLock();
     private final Condition notEmpty = lock.newCondition();
 
+    public static Logger logger = LoggerFactory.getLogger(App.class);
 
     public PointToPointLink(NodeInfo nInfo, NodeInfo m) throws Exception {
-        System.out.println("Establishing point-to-point link to " + nInfo.toString());
+        logger.info("Establishing point-to-point link to " + nInfo.toString());
         clientSocket = new DatagramSocket();
         socket = App.rb.mySocket;
         receiverIP = InetAddress.getByName(nInfo.getIP());
@@ -43,7 +47,7 @@ public class PointToPointLink extends Thread
         theOther = nInfo;
         me = m;
     }
-    
+
     public void run(){
     	while (true){
     		while(toSend.size()==0)
@@ -77,7 +81,7 @@ public class PointToPointLink extends Thread
 		}
     	}
     }
-    
+
     public void sendAck(ProtocolMsg message) throws Exception {
 
     	ProtocolMsg.Ack ack = new Ack(message, me.getId());
@@ -88,7 +92,7 @@ public class PointToPointLink extends Thread
         DatagramPacket packet = new DatagramPacket(data, data.length, receiverIP, receiverPort);
         clientSocket.send(packet);
     }
-    
+
     public void stubbornSend(ProtocolMsg message) throws Exception {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         ObjectOutputStream os = new ObjectOutputStream(outputStream);
@@ -102,7 +106,7 @@ public class PointToPointLink extends Thread
         notEmpty.signal();
         lock.unlock();
     }
-    
+
     public void deliver(ProtocolMsg msg) throws Exception {
 
     	if (msg.getTimestamp()==nextToDeliver)
@@ -112,7 +116,7 @@ public class PointToPointLink extends Thread
     		sendAck(msg);
     	}
     }
-    
+
     public void deliverAck(Ack ack) throws Exception {
 		if (ack.getTimestamp()>lastAcked)
 	        	lastAcked = ack.getTimestamp();
