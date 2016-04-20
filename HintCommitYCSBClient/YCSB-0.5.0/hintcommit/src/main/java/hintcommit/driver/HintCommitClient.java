@@ -47,9 +47,9 @@ import com.yahoo.ycsb.StringByteIterator;
 
 /**
  * Cassandra 2.x CQL client.
- * 
+ *
  * See {@code cassandra2/README.md} for details.
- * 
+ *
  * @author cmatser
  */
 public class HintCommitClient extends DB {
@@ -58,18 +58,18 @@ public class HintCommitClient extends DB {
 	static final String HOST = System.getProperty("host", "127.0.0.1");
 	static int CACHE_CAPACITY = 2;
 	static int PORT;
-	
+
 	public static enum Version {JUST_HINT, HINT_COMMIT_FROM_SERVER, HINT_CACHE}
 	private static Version vers = Version.HINT_CACHE;
-	
+
 	ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
 	public NettyClient nc;
 	public RequestExecution re;
-	public CacheStore cache; 
+	public CacheStore cache;
 	public static Gson gson = new Gson();
 	private static boolean debug = false;
-	
+
 
 	/**
 	 * Initialize any state for this DB. Called once per DB instance; there is
@@ -79,12 +79,12 @@ public class HintCommitClient extends DB {
 	public void init() throws DBException {
 		System.out.println("\nInitializing the YCSB adapter.\n");
 		CountDownLatch nettyStartupLatch = new CountDownLatch(1);
-			
-		nc = new NettyClient(nettyStartupLatch, Integer.parseInt("8007"));
+
+		nc = new NettyClient(nettyStartupLatch, Integer.parseInt("17000"));
 		cache = new CacheStore(CACHE_CAPACITY);
 		nc.start();
 		re = new RequestExecution(nc, cache, vers);
-			
+
 		try {
 			nettyStartupLatch.await();
 		} catch (InterruptedException e) {
@@ -105,7 +105,7 @@ public class HintCommitClient extends DB {
 	/**
 	 * Read a record from the database. Each field/value pair from the result
 	 * will be stored in a HashMap.
-	 * 
+	 *
 	 * @param table
 	 *            The name of the table
 	 * @param key
@@ -121,7 +121,7 @@ public class HintCommitClient extends DB {
 			HashMap<String, ByteIterator> result) {
 		String readCommand = "get," + key + "\r\n";
 		System.out.println("Reading " + key);
-		
+
 		return read_and_compare(readCommand, result);
 	}
 
@@ -129,12 +129,12 @@ public class HintCommitClient extends DB {
 			HashMap<String, ByteIterator> result) {
 		boolean divergent = false;
 		try {
-			
+
 			ArrayList<Future<String>> futures = executeCommand(command);
 
 			Future<String> hintRSF = futures.get(0);
 			Future<String> commitRSF = null;
-			
+
 			if (!vers.equals(Version.JUST_HINT))
 				commitRSF = futures.get(1);
 
@@ -151,7 +151,7 @@ public class HintCommitClient extends DB {
 			}
 			try{
 				if (!vers.equals(Version.JUST_HINT))
-					commitRS = Uninterruptibles.getUninterruptibly(commitRSF,300L, TimeUnit.MILLISECONDS); 
+					commitRS = Uninterruptibles.getUninterruptibly(commitRSF,300L, TimeUnit.MILLISECONDS);
 				//commitRSF.getUninterruptibly(300L,TimeUnit.MILLISECONDS);
 			} catch (TimeoutException e) {
 				System.out.println("  ... commit timed out!");
@@ -161,7 +161,7 @@ public class HintCommitClient extends DB {
 			if (hintRS==null) {
 				//return Status.NOT_FOUND;
 			}
-			
+
 			//Notification hintNotification = new Notification("value",hintRS, hintTS);
 
 				if (hintRS != null) {
@@ -179,15 +179,15 @@ public class HintCommitClient extends DB {
 				if (commitRS!=null) {
 					// There was both a HINT and a COMMIT..
 					// Let's compare the HINT with the COMMIT
-	
+
 					//Notification commitNotification = new Notification("value",commitRS, hintTS);
-	
+
 					//divergent = !commitNotification.equals(hintNotification);
 				}
 			}
 			System.out.println("hint: "+hintRS+",commit: "+commitRS);
 			return new TimestampedStatus("", "", hintTS, divergent);
-			
+
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.out.println("Error reading..");
@@ -198,10 +198,10 @@ public class HintCommitClient extends DB {
 	/**
 	 * Perform a range scan for a set of records in the database. Each
 	 * field/value pair from the result will be stored in a HashMap.
-	 * 
+	 *
 	 * Cassandra CQL uses "token" method for range scan which doesn't always
 	 * yield intuitive results.
-	 * 
+	 *
 	 * @param table
 	 *            The name of the table
 	 * @param startkey
@@ -228,7 +228,7 @@ public class HintCommitClient extends DB {
 	 * Update a record in the database. Any field/value pairs in the specified
 	 * values HashMap will be written into the record with the specified record
 	 * key, overwriting any existing values with the same field name.
-	 * 
+	 *
 	 * @param table
 	 *            The name of the table
 	 * @param key
@@ -249,7 +249,7 @@ public class HintCommitClient extends DB {
 	 * Insert a record in the database. Any field/value pairs in the specified
 	 * values HashMap will be written into the record with the specified record
 	 * key.
-	 * 
+	 *
 	 * @param table
 	 *            The name of the table
 	 * @param key
@@ -284,7 +284,7 @@ public class HintCommitClient extends DB {
 
 	/**
 	 * Delete a record from the database.
-	 * 
+	 *
 	 * @param table
 	 *            The name of the table
 	 * @param key
@@ -298,11 +298,11 @@ public class HintCommitClient extends DB {
 
 		return Status.ERROR;
 	}
-	
+
 	public ArrayList<Future<String>> executeCommand(String c){
-		ArrayList<Future<String>> ret = new ArrayList<>();
+		ArrayList<Future<String>> ret = new ArrayList<Future<String>>();
 		re.setCommand(c);
-		
+
 		if (vers.equals(Version.JUST_HINT)){
 			ret.add(pool.submit(re.hintRequest));
 		}
@@ -315,7 +315,7 @@ public class HintCommitClient extends DB {
 			//hre for just current value in server's map, we consider it a commit
 			ret.add(pool.submit(re.hintRequest));
 		}
-		
+
 		return ret;
 	}
 }

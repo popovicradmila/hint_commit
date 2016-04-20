@@ -4,7 +4,7 @@ import java.util.HashMap;
 
 public class CacheStore {
 
-	private HashMap<String, String> map = new HashMap<>();
+	private HashMap<String, String> map = new HashMap<String, String>();
 	private LruList lruList = new LruList();
 	private int capacity;
 
