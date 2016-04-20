@@ -15,7 +15,7 @@
    * under the License.
    */
   package main.java.ch.epfl.lpd;
-  
+
   import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -34,19 +34,24 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
-  
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
   /**
    * Echoes back any received data from a client.
    */
   public class ServerThread extends Thread{
-  
+
       static final boolean SSL = System.getProperty("ssl") != null;
       static  int PORT;
-  
+
+      public static Logger logger = LoggerFactory.getLogger(ServerThread.class);
+
       public ServerThread(String p){
     	  PORT = Integer.parseInt(System.getProperty("port", p));
       }
-      
+
       public void run(){
           // Configure SSL.
           final SslContext sslCtx;
@@ -57,12 +62,12 @@ import io.netty.handler.ssl.util.SelfSignedCertificate;
 	            sslCtx = SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey()).build();
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.error("Got exception", e);
 			}
           } else {
               sslCtx = null;
           }
-  
+
           // Configure the server.
           EventLoopGroup bossGroup = new NioEventLoopGroup(1);
           EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -88,7 +93,7 @@ import io.netty.handler.ssl.util.SelfSignedCertificate;
                        p.addLast(new ServerHandler());
                    }
                });
-  
+
               // Start the server.
               ChannelFuture f;
 			try {
@@ -97,9 +102,9 @@ import io.netty.handler.ssl.util.SelfSignedCertificate;
 	            f.channel().closeFuture().sync();
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.error("Got exception", e);
 			}
-  
+
           } finally {
               // Shut down all event loops to terminate all threads.
               bossGroup.shutdownGracefully();

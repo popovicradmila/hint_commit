@@ -1,7 +1,6 @@
 
 package main.java.ch.epfl.lpd;
 
-import java.io.PrintWriter;
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.ArrayList;
@@ -32,7 +31,6 @@ public class App {
 	public static StoreMap store;
 	public static LinkedList<Command> commands = new LinkedList<Command>();
 	public static LinkedList<Command> readCommands = new LinkedList<Command>();
-    public static PrintWriter writer;
     public static ClientThread client;
     public static boolean vanillaVers = true;
 
@@ -42,8 +40,8 @@ public class App {
 
         /**
          * Parse command line arguments.
-         */    	
-    	
+         */
+
         List<NodeInfo> nodes = parseCmdNodesInfo(args);
         for (int i = 0; i < 3; i++)
             logger.info("Node [" + i + "] info " + nodes.get(i).toString());
@@ -71,53 +69,36 @@ public class App {
 			mySocket = new DatagramSocket(nodes.get(thisNodeIndex).getPort());
 		} catch (SocketException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error("Got exception", e);
 		}
 
         NodeInfo me = nodes.get(thisNodeIndex);
         rb = new ReliableBroadcast(mySocket, null, me);
 
         rb.ptpLinks = establishPTPLinks(nodes, thisNodeIndex);
-        
-        writer = new PrintWriter("server.log", "UTF-8");
-        
+
 
         CountDownLatch startSignal = new CountDownLatch(1);
         registerSignalHandler(startSignal);
 
         st = new ServerThread(nettyPort);
-        
+
         st.start();
 
-        /*
-        System.out.println("Awaiting for SIGINT... please send the signal using: kill -INT PID");
-        startSignal.await();
-        System.out.println("Got SIGINT. Starting...");
-         */
-
         PortListener pl = new PortListener();
-        
+
 		client = new ClientThread();
-		
+
         pl.start();
 
         for (PointToPointLink ptpl:rb.ptpLinks.values())
         	ptpl.start();
 
-
         Runtime.getRuntime().addShutdownHook(
             new Thread() {
                 public void run() {
-                    logger.info("Shutdown Hook is running !");
+                    logger.warn("Shutdown Hook is running !");
                 }});
-
-        /*
-        for (int i = 0; i < commands.size(); i++) {
-            commands.get(i).execute();
-        }
-        */
-
-        writer.close();
     }
 
 

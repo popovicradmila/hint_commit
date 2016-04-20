@@ -10,26 +10,31 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import main.java.ch.epfl.lpd.store.StoreMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class InQueue extends Thread{
-	
+
 	public StoreMap map;
 	public ConcurrentLinkedQueue<InOutQueueC> queue = new ConcurrentLinkedQueue<InOutQueueC>();
 	public Lock queueLock = new ReentrantLock();
     public HashMap<String, InOutQueueC> newestEntries = new HashMap<String, InOutQueueC>();
 	public final Lock lock = new ReentrantLock();
 	public final Condition notEmpty = lock.newCondition();
-	
+
+    public static Logger logger = LoggerFactory.getLogger(InQueue.class);
+
 	public InQueue(StoreMap map)
 	{
 		this.map = map;
 	}
-	
+
 	public void put(InOutQueueC c)
 	{
 		queue.add(c);
 		newestEntries.put(c.key, c);
 	}
-	
+
 	public void put(int sender, String key, String value, int[] timestamps)
 	{
 		InOutQueueC entry = new InOutQueueC(sender, key, value, timestamps);
@@ -41,7 +46,7 @@ public class InQueue extends Thread{
 	{
 		return queue.poll();
 	}
-	
+
     public void run(){
     	while (true){
     		while(queue.size()==0)
@@ -52,18 +57,20 @@ public class InQueue extends Thread{
 				} catch (InterruptedException e1) {
 					// TODO Auto-generated catch block
 					lock.unlock();
-					e1.printStackTrace();
+					logger.error("Got exception", e1);
 				}
+
     		for(Iterator<InOutQueueC> it = queue.iterator(); it.hasNext(); ) {
     		      InOutQueueC entry = it.next();//queue.peek(); //OVDE
+                //   logger.info("About to send.." + entry.toString());
     		      if (safeToDeliver(entry)){
     		    	  queueLock.lock();
         		      queue.remove(entry);
         		      queueLock.unlock();
-        		      
+
         			  map.timestamps[entry.sender] = entry.timestamps[entry.sender];
         		      map.put(entry.key, entry.value);
-        		     
+
         				if (isInFreshPending(entry,App.client.freshPending))
 						{
 							App.client.commit = entry.value;
@@ -78,14 +85,14 @@ public class InQueue extends Thread{
 							notEmpty.await();
 						} catch (InterruptedException e) {
 							// TODO Auto-generated catch block
-							e.printStackTrace();
+							logger.error("Got exception", e);
 						}
 					lock.unlock();
     		      }
     		}
     	}
     }
-    
+
     private boolean safeToDeliver(InOutQueueC c){
     	int sender = c.sender;
     	if (c.timestamps[sender]!=map.timestamps[sender]+1)
@@ -96,8 +103,8 @@ public class InQueue extends Thread{
     	}
     	return true;
     }
-    
-    public ArrayList<InOutQueueC> getFresh(String key){	
+
+    public ArrayList<InOutQueueC> getFresh(String key){
     	if (queue.size()==0)
     		return null;
     	ArrayList<InOutQueueC> list =  new ArrayList<>();
@@ -109,7 +116,7 @@ public class InQueue extends Thread{
 		    }
     	return list;
     }
-    
+
     public boolean isInFreshPending(InOutQueueC e, ArrayList<InOutQueueC> list)
     {
     	if (list==null)

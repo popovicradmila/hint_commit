@@ -58,7 +58,7 @@ public class HintCommitClient extends DB {
 	static int PORT;
 
 	public static enum Version {JUST_HINT, HINT_COMMIT_FROM_SERVER, HINT_CACHE}
-	private static Version vers = Version.HINT_CACHE;
+	private static Version vers = Version.JUST_HINT;
 
 	ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
@@ -266,20 +266,20 @@ public class HintCommitClient extends DB {
 		System.out.println("Inserting " + key);
 
 		Post p =  new Post();
-		p.setId(key);		
+		p.setId(key);
 		try {
 			// Add fields
-			
+
 			Iterator<Map.Entry<String, ByteIterator>> valuesIt = values.entrySet().iterator();
-			
+
 			Map.Entry<String, ByteIterator> entry = valuesIt.next();
 			ByteIterator byteIterator = entry.getValue();
 			p.setType(byteIterator.toString());
-			
+
 			entry = valuesIt.next();
 			byteIterator = entry.getValue();
 			p.setContent(byteIterator.toString());
-			
+
 			entry = valuesIt.next();
 			byteIterator = entry.getValue();
 			p.setAuthor(byteIterator.toString());
@@ -287,10 +287,10 @@ public class HintCommitClient extends DB {
 			entry = valuesIt.next();
 			byteIterator = entry.getValue();
 			p.setTimestamp(byteIterator.toString());
-			
+
 			String postJson = p.toJson(gson);
 
-			String updateCommand = "put,"+key+","+postJson+"\r\n";
+			String updateCommand = "put," + key + "," + postJson + "\r\n";
 			nc.serverChannel.writeAndFlush(updateCommand);
 
 			return Status.OK;

@@ -8,22 +8,26 @@ import main.java.ch.epfl.lpd.App;
 import main.java.ch.epfl.lpd.InOutQueueC;
 import main.java.ch.epfl.lpd.NodeInfo;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class ReliableBroadcast {
 
 	public DatagramSocket mySocket;
 	public HashMap<Integer, PointToPointLink> ptpLinks;
 	public NodeInfo me;
-    	public int protocolTsp = 0;
+    public int protocolTsp = 0;
 	public int[] protocolTsps = {0,0,0};
-    
-    
+
+    public static Logger logger = LoggerFactory.getLogger(ReliableBroadcast.class);
+
 	private int noDeliveredUntilMax = 0;
 	private int b = 10000;
 	private int[] max = {1,1,1};
-	
+
 	ConcurrentHashMap<HMKey,BroadcastMsg> delivered = new ConcurrentHashMap<HMKey, BroadcastMsg>();
-	
-	
+
+
 	public ReliableBroadcast(DatagramSocket mySocket,
 			HashMap<Integer, PointToPointLink> ptpLinks, NodeInfo me) {
 		super();
@@ -31,22 +35,22 @@ public class ReliableBroadcast {
 		this.ptpLinks = ptpLinks;
 		this.me = me;
 	}
-	
+
 	public void broadcast(BroadcastMsg msg){
 		HMKey key = new HMKey(msg.getTimestamp(),msg.getSenderId());
 		delivered.put(key, msg);
 		noDeliveredUntilMax++;
 		if (noDeliveredUntilMax>=b)
 			manageDelivered(msg);
-		
+
 		  for (PointToPointLink ptpl:ptpLinks.values())
 			try {
 				protocolTsps[ptpl.theOther.getId()]++;
-				ProtocolMsg pm = new ProtocolMsg(msg,protocolTsps[ptpl.theOther.getId()],me.getId()); 
+				ProtocolMsg pm = new ProtocolMsg(msg,protocolTsps[ptpl.theOther.getId()],me.getId());
 				ptpl.stubbornSend(pm);
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.error("Got exception", e);
 			}
 	}
 
@@ -70,12 +74,12 @@ public class ReliableBroadcast {
 						if (m.getSenderId()!=ptpl.theOther.getId() && msg.getSenderId()!=ptpl.theOther.getId())
 						{
 							protocolTsps[ptpl.theOther.getId()]++;
-							ProtocolMsg pm = new ProtocolMsg(msg,protocolTsps[ptpl.theOther.getId()],me.getId()); 
+							ProtocolMsg pm = new ProtocolMsg(msg,protocolTsps[ptpl.theOther.getId()],me.getId());
 							ptpl.stubbornSend(pm);
 						}
 					} catch (Exception e) {
 						// TODO Auto-generated catch block
-						e.printStackTrace();
+						logger.error("Got exception", e);
 					}
 			noDeliveredUntilMax++;
 			if (noDeliveredUntilMax>=b)
@@ -84,7 +88,7 @@ public class ReliableBroadcast {
 		}
 		return null;
 	}
-	
+
 	private void manageDelivered(BroadcastMsg msg){
 
 		boolean allIn = true;
@@ -108,7 +112,7 @@ public class ReliableBroadcast {
 			noDeliveredUntilMax =0;
 		}
 	}
-	
+
 	private class HMKey {
 	    private final int flag1;
 	    private final int flag2;

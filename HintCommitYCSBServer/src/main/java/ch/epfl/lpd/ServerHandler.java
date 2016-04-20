@@ -14,23 +14,29 @@
    * License for the specific language governing permissions and limitations
    * under the License.
    */
-  package main.java.ch.epfl.lpd;
-  
-  import io.netty.channel.ChannelHandler.Sharable;
+package main.java.ch.epfl.lpd;
+
+import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.ReferenceCountUtil;
-  
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
   /**
    * Handler implementation for the echo server.
    */
   @Sharable
   public class ServerHandler extends ChannelInboundHandlerAdapter {
-  
+
+      public static Logger logger = LoggerFactory.getLogger(ServerHandler.class);
+
       @Override
       public void channelActive(ChannelHandlerContext ctx) {
       }
-	  
+
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
     	  try {
@@ -39,16 +45,16 @@ import io.netty.util.ReferenceCountUtil;
     	    	ReferenceCountUtil.release(msg);
     	    }
       }
-  
+
       @Override
       public void channelReadComplete(ChannelHandlerContext ctx) {
           //ctx.flush();
       }
-  
+
       @Override
       public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
           // Close the connection when an exception is raised.
-          cause.printStackTrace();
+          logger.error("Got exception", cause);
           ctx.close();
       }
   }
