@@ -80,6 +80,9 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
 			nc.clock.lock();
 			nc.commited.signal();
 			nc.clock.unlock();
+			break;		
+		case "e":
+			System.out.println("Error code received: "+((String) msg).substring(1));
 			break;
 		default: 
 			System.out.println("Invalid data received");

@@ -29,14 +29,11 @@ import io.netty.util.ReferenceCountUtil;
   
       @Override
       public void channelActive(ChannelHandlerContext ctx) {
-          //ctx.writeAndFlush(firstMessage);
-    	  //System.out.println("ACTIVE");
       }
 	  
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
     	  try {
-              //ctx.writeAndFlush(msg);
     		  App.client.run((String)msg, ctx);
     	    } finally {
     	    	ReferenceCountUtil.release(msg);

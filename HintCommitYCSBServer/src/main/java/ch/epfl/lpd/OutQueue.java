@@ -53,8 +53,7 @@ public class OutQueue extends Thread{
     		      queue.remove(entry);
     		      BroadcastMsg msg = new BroadcastMsg(entry, entry.timestamps[entry.sender], entry.sender);
     		      App.rb.broadcast(msg);
-    		      //System.out.println("Broadcast :"+entry.key + ", "+ entry.value);
-    		    }
+    		     }
     	}
     }
 }

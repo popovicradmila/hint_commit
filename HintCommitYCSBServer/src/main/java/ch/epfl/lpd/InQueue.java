@@ -61,15 +61,11 @@ public class InQueue extends Thread{
         		      queue.remove(entry);
         		      queueLock.unlock();
         		      
-        			  //System.out.println("In removed(me="+App.rb.me.getId()+"):"+entry.sender+","+entry.key+","+entry.value+",["+entry.timestamps[0]+","+entry.timestamps[1]+","+entry.timestamps[2]+"]");
-        		      map.timestamps[entry.sender] = entry.timestamps[entry.sender];
+        			  map.timestamps[entry.sender] = entry.timestamps[entry.sender];
         		      map.put(entry.key, entry.value);
-        		      System.out.println("Map put "+entry.key+","+entry.value);
-
-        				//System.out.println("New :"+entry.key+","+entry.value);
-						if (isInFreshPending(entry,App.client.freshPending))
+        		     
+        				if (isInFreshPending(entry,App.client.freshPending))
 						{
-							System.out.println("Commit a value : "+entry.key +"," + entry.value);
 							App.client.commit = entry.value;
 							App.client.lock.lock();
 							App.client.commited.signal();

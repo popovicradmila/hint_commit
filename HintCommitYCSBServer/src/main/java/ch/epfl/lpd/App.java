@@ -36,7 +36,7 @@ public class App {
     public static ClientThread client;
     public static boolean vanillaVers = true;
 
-    static Logger logger = LoggerFactory.getLogger(App.class);
+    public static Logger logger = LoggerFactory.getLogger(App.class);
 
     public static void main(String args[]) throws Exception {
 
@@ -81,12 +81,6 @@ public class App {
         
         writer = new PrintWriter("server.log", "UTF-8");
         
-	    /**
-         * Now wait for the starting signal...
-         *
-         * This flag tells the App when it can start executing the trace, i.e.,
-         * when SIGCONT was received.
-         */
 
         CountDownLatch startSignal = new CountDownLatch(1);
         registerSignalHandler(startSignal);

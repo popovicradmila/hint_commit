@@ -32,6 +32,7 @@ public class ClientThread
     }
     
     public void run(String command, ChannelHandlerContext ctx){
+    	App.logger.info("Command received: "+command);
     	this.ctx = ctx;
     	String[] tokens = command.split(",");
     	if (tokens[0].equals("put"))

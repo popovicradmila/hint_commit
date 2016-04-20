@@ -16,9 +16,7 @@
    */
   package main.java.ch.epfl.lpd;
   
-  import java.security.cert.CertificateException;
-
-import io.netty.bootstrap.ServerBootstrap;
+  import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
