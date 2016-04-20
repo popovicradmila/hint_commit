@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="/home/kira/Downloads/netty-4.0.34.Final/jar/all-in-one/netty-all-4.0.34.Final.jar"/>
+	<classpathentry kind="lib" path="/home/kira/Downloads/netty-4.0.34.Final/jar/all-in-one/netty-all-4.0.34.Final-sources.jar"/>
+	<classpathentry kind="lib" path="/home/kira/ycsb-0.7.0/lib/core-0.7.0.jar"/>
+	<classpathentry kind="lib" path="/home/kira/workspace/guava-19.0.jar"/>
+	<classpathentry kind="lib" path="/home/kira/EPFL/LPD/hint_commit/lib/gson-2.6.2.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

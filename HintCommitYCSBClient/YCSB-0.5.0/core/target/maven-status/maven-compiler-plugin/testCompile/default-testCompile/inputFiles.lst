@@ -1,0 +1,4 @@
+/home/kira/curious-cassandra/applications/hc/YCSB-0.5.0/core/src/test/java/com/yahoo/ycsb/generator/TestZipfianGenerator.java
+/home/kira/curious-cassandra/applications/hc/YCSB-0.5.0/core/src/test/java/com/yahoo/ycsb/measurements/exporter/TestMeasurementsExporter.java
+/home/kira/curious-cassandra/applications/hc/YCSB-0.5.0/core/src/test/java/com/yahoo/ycsb/TestByteIterator.java
+/home/kira/curious-cassandra/applications/hc/YCSB-0.5.0/core/src/test/java/com/yahoo/ycsb/generator/AcknowledgedCounterGeneratorTest.java
