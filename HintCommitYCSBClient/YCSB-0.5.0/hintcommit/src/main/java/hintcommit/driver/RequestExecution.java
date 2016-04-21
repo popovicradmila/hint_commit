@@ -11,6 +11,7 @@ public class RequestExecution {
     public HintRequestExecution   hintRequest;
     public CommitRequestExecution commitRequest;
     public CacheRequestExecution  cacheRequest;
+    public UpdateRequestExecution updateRequest;
     public CacheStore             cache;
     public Version                vers;
 
@@ -21,6 +22,7 @@ public class RequestExecution {
         hintRequest   = new HintRequestExecution();
         commitRequest = new CommitRequestExecution();
         cacheRequest  = new CacheRequestExecution();
+        updateRequest = new UpdateRequestExecution();
         this.cache    = cache;
         this.vers     = vers;
     }
@@ -52,10 +54,10 @@ public class RequestExecution {
             // nc.hcInstance.printResponse();
             // nc.hcInstance.commit = null;
             // nc.hcInstance.hint = null;
-            if (vers.equals(Version.HINT_CACHE))
-            {
-                cache.put(nc.hcInstance.key, nc.hcInstance.hint);
-            }
+            // if (vers.equals(Version.HINT_CACHE))
+            // {
+            //     cache.put(nc.hcInstance.key, nc.hcInstance.hint);
+            // }
             String newHint = nc.hcInstance.hint;
             if (vers.equals(Version.HINT_CACHE) || vers.equals(Version.JUST_HINT))
             {
@@ -104,6 +106,17 @@ public class RequestExecution {
             } else {
                 return res;
             }
+        }
+    }
+
+    public class UpdateRequestExecution implements Callable<String> {
+        @Override
+        public String call() throws Exception
+        {
+            nc.serverChannel.writeAndFlush(command);
+            nc.updateBarrier.await();
+            nc.updateBarrier.reset();
+            return "ok";
         }
     }
 }

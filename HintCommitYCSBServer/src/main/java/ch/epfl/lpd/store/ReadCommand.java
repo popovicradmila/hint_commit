@@ -16,47 +16,47 @@ public class ReadCommand extends Command {
         super(map, arg1, null);
     }
 
-    public void execute(ClientThread c)
+    public void execute(ClientThread clientThread)
     {
-        c.key  = key;
-        c.hint = map.get(key);
+        clientThread.key  = key;
+        clientThread.hint = map.get(key);
 
-        logger.info("Attempted to read key " + key + " with value: " + c.hint);
+        logger.info("Attempted to read key " + key + " with value: " + clientThread.hint);
 
         //if running the vanilla version, send just the value currently in the store and return
         if (App.vanillaVers)
         {
-            c.hint();
+            clientThread.hint();
             return;
         }
 
         App.store.inQueue.queueLock.lock();
-        c.freshPending = App.store.inQueue.getFresh(key);
+        clientThread.freshPending = App.store.inQueue.getFresh(key);
         App.store.inQueue.queueLock.unlock();
 
-        logger.info("Read a value : " + key + "," + c.hint);
+        logger.info("Read a value : " + key + "," + clientThread.hint);
         /**/
-        if (c.freshPending != null)
+        if (clientThread.freshPending != null)
         {
-            c.hint();
-            while (c.commit == null)
+            clientThread.hint();
+            while (clientThread.commit == null)
             {
                 try {
-                    c.lock.lock();
-                    c.commited.await();
-                    c.lock.unlock();
+                    clientThread.lock.lock();
+                    clientThread.commited.await();
+                    clientThread.lock.unlock();
                 }
                 catch (InterruptedException e1) {
                     // TODO Auto-generated catch block
                     logger.error("Got exception", e1);
                 }
             }
-            c.commit(false);
+            clientThread.commit(false);
         }
         else
         {
-            c.commit = c.hint;
-            c.commit(true);
+            clientThread.commit = clientThread.hint;
+            clientThread.commit(true);
         }
     }
 

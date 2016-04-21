@@ -57,6 +57,7 @@ public class OutQueue extends Thread{
     		      InOutQueueC entry = it.next();
     		      queue.remove(entry);
     		      BroadcastMsg msg = new BroadcastMsg(entry, entry.timestamps[entry.sender], entry.sender);
+                //   logger.info("Sending out broadcast with TS: " + entry.timestamps[entry.sender]);
     		      App.rb.broadcast(msg);
     		     }
     	}

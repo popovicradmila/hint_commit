@@ -31,12 +31,12 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
 	/*
 	 * @Override public void messageReceived(ChannelHandlerContext c, String s)
 	 * throws Exception{
-	 * 
+	 *
 	 * }
 	 */
 	NettyClient nc;
-	
-	
+
+
 	/**
 	 * Creates a client-side handler.
 	 */
@@ -69,24 +69,31 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
 			break;
 		case "b":
 			nc.hcInstance.hint = ((String) msg).substring(1);
-			
+
 			nc.hlock.lock();
 			nc.hinted.signal();
 			nc.hlock.unlock();
-			
 
 			nc.hcInstance.commit = ((String) msg).substring(1);
-			
+
 			nc.clock.lock();
 			nc.commited.signal();
 			nc.clock.unlock();
-			break;		
+			break;
+        case "w":
+            try {
+                nc.updateBarrier.await();
+            } catch (Exception e)
+            {
+                e.printStackTrace();
+            }
+            break;
 		case "e":
 			System.out.println("Error code received: "+((String) msg).substring(1));
 			break;
-		default: 
+		default:
 			System.out.println("Invalid data received");
-			
+
 		}
 
 	}

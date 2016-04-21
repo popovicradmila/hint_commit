@@ -52,10 +52,8 @@ import com.yahoo.ycsb.TimestampedStatus;
  * @author cmatser
  */
 public class HintCommitClient extends DB {
-    static final boolean SSL            = System.getProperty("ssl") != null;
-    static final String  HOST           = System.getProperty("host", "127.0.0.1");
-    static int           CACHE_CAPACITY = 2;
-    static int           PORT;
+    static final String DEFAULT_PORT           = "17000";
+    static final String DEFAULT_CACHE_CAPACITY = "1024";
 
     public static enum Version { JUST_HINT, HINT_COMMIT_FROM_SERVER, HINT_CACHE }
     private static Version vers = Version.HINT_CACHE;
@@ -79,8 +77,23 @@ public class HintCommitClient extends DB {
         System.out.println("\nInitializing the YCSB adapter.\n");
         CountDownLatch nettyStartupLatch = new CountDownLatch(1);
 
-        nc    = new NettyClient(nettyStartupLatch, Integer.parseInt("17000"));
-        cache = new CacheStore(CACHE_CAPACITY);
+        String host = getProperties().getProperty("host");
+        if (host == null)
+        {
+            throw new DBException(String.format(
+                                      "Required property \"host\" missing!"));
+        }
+
+        int port           = Integer.valueOf(getProperties().getProperty("port", DEFAULT_PORT));
+        int cache_capacity = Integer.valueOf(getProperties().getProperty("cache_capacity", DEFAULT_CACHE_CAPACITY));
+
+        System.out.println("\nParams:\n");
+        System.out.println("\t HOST: " + host);
+        System.out.println("\t PORT: " + port);
+        System.out.println("\t CACHE_CAPACITY: " + cache_capacity);
+
+        nc    = new NettyClient(nettyStartupLatch, port, host);
+        cache = new CacheStore(cache_capacity);
         nc.start();
         re = new RequestExecution(nc, cache, vers);
 
@@ -172,21 +185,23 @@ public class HintCommitClient extends DB {
 
             if (hintRS == null)
             {
-                System.out.println("Cache miss..");
-                hintPost = new Post();
-            } else {
-                System.out.println("Cache hit..");
-                 hintPost = new Post(hintRS, gson);
+                // System.out.println("Cache miss..");
+                hintPost = null;
             }
+            else
+            {
+                System.out.println("Cache hit.." + hintRS.toString());
+                hintPost = new Post(hintRS, gson);
+            }
+
+            Post commitPost = null;
 
             if (!vers.equals(Version.JUST_HINT))
             {
-                if (commitRS != null)
+                /** The backend might return a "null" String if the Post was not found */
+                if (commitRS != null&& !commitRS.equals("null"))
                 {
-                    // There was both a HINT and a COMMIT..
-                    // Let's compare the HINT with the COMMIT
-
-                    Post commitPost = new Post(commitRS, gson);
+                    commitPost = new Post(commitRS, gson);
 
                     result.put("id", new StringByteIterator(commitPost.getId()));
                     result.put("type", new StringByteIterator(commitPost.getType().toString()));
@@ -194,17 +209,32 @@ public class HintCommitClient extends DB {
                     result.put("timestamp", new StringByteIterator(commitPost.getTimestamp()));
                     result.put("author", new StringByteIterator(commitPost.getAuthor()));
 
-                    divergent = !commitPost.equals(hintPost);
+                    if (hintPost == null)
+                    {
+                        divergent = true;
+                    }
+                    else
+                    {
+                        divergent = !commitPost.equals(hintPost);
+                    }
+
+                    System.out.println("Divergent: " + divergent);
 
                     /** Ensure some form of cache coherence */
-                    if (divergent == true) {
+                    if (divergent == true)
+                    {
+                        // System.out.println("Putting in the cache: " + commitPost.toString());
                         cache.put(commitPost.getId(), commitPost.toJson(gson));
                     }
                 }
+                else
+                {
+                    /** Not found in the backend */
+                    System.out.println("\t-> not found");
+                    return Status.NOT_FOUND;
+                }
             }
 
-
-            System.out.println("Divergent: " + divergent);
             return new TimestampedStatus("", "", hintTS, divergent);
         }
         catch (Exception e) {
@@ -285,33 +315,21 @@ public class HintCommitClient extends DB {
     {
         System.out.println("Inserting " + key);
 
-        Post p = new Post();
+        Post p = new Post(values);
         p.setId(key);
         try {
             // Add fields
 
-            Iterator<Map.Entry<String, ByteIterator> > valuesIt = values.entrySet().iterator();
-
-            Map.Entry<String, ByteIterator> entry = valuesIt.next();
-            ByteIterator byteIterator             = entry.getValue();
-            p.setType(byteIterator.toString());
-
-            entry        = valuesIt.next();
-            byteIterator = entry.getValue();
-            p.setContent(byteIterator.toString());
-
-            entry        = valuesIt.next();
-            byteIterator = entry.getValue();
-            p.setAuthor(byteIterator.toString());
-
-            entry        = valuesIt.next();
-            byteIterator = entry.getValue();
-            p.setTimestamp(byteIterator.toString());
-
             String postJson = p.toJson(gson);
 
             String updateCommand = "put," + key + "," + postJson + "\r\n";
-            nc.serverChannel.writeAndFlush(updateCommand);
+
+            re.setCommand(updateCommand);
+            Future<String> updateFuture = pool.submit(re.updateRequest);
+
+            Uninterruptibles.getUninterruptibly(updateFuture, 1000L, TimeUnit.MILLISECONDS);
+
+            cache.put(key, postJson);
 
             return Status.OK;
         }

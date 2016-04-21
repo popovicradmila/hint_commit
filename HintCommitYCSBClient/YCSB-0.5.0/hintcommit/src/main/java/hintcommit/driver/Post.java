@@ -1,5 +1,10 @@
 package main.java.hintcommit.driver;
 
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Iterator;
+
+import com.yahoo.ycsb.ByteIterator;
 import com.google.gson.Gson;
 
 public class Post {
@@ -23,6 +28,18 @@ public class Post {
         this.type      = a.type;
         this.timestamp = a.timestamp;
         this.content   = a.content;
+    }
+
+    public Post(HashMap<String, ByteIterator> values)
+    {
+        Iterator<Map.Entry<String, ByteIterator> > valuesIt = values.entrySet().iterator();
+        Map.Entry<String, ByteIterator> entry = valuesIt.next();
+        String value             = entry.getValue().toString();
+
+        this.setType(value);
+        this.setTimestamp(value);
+        this.setContent(value);
+        this.setAuthor(value);
     }
 
     public String toJson(Gson gson)

@@ -1,6 +1,8 @@
 package main.java.ch.epfl.lpd.store;
 
 import main.java.ch.epfl.lpd.App;
+import main.java.ch.epfl.lpd.net.PointToPointLink;
+import main.java.ch.epfl.lpd.net.ClientThread;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +16,7 @@ public class WriteCommand extends Command {
         super(map, arg1, arg2);
     }
 
-    public String execute()
+    public String execute(ClientThread clientThread)
     {
         int senderId = App.rb.me.getId();
 
@@ -27,16 +29,24 @@ public class WriteCommand extends Command {
         map.outQueue.notEmpty.signal();
         map.outQueue.lock.unlock();
 
-        if (App.rb.me.getId() == 1)
+        int c = 0;
+        for (PointToPointLink ptpl: App.rb.ptpLinks.values())
         {
+            int left = ptpl.getUnAcknowledged();
             try {
-                Thread.sleep(5);
+                if (left > 500) {
+                    logger.info("PTPlink: Backpressure");
+                    Thread.sleep(300);
+                }
             }
-            catch (InterruptedException e) {
+            catch (Exception e) {
                 // TODO Auto-generated catch block
                 logger.error("Got exception", e);
             }
         }
+
+        clientThread.writeOk();
+
         return null;
     }
 

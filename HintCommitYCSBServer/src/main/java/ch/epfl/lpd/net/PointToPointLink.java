@@ -30,7 +30,7 @@ public class PointToPointLink extends Thread
     public NodeInfo        theOther;
     private NodeInfo       me;
     private int            receiverPort;
-    public long            lastAcked     = 0;
+    public Integer         lastAcked     = 0;
     private long           nextToDeliver = 1;
     private ConcurrentHashMap<Integer, DatagramPacket> toSend = new ConcurrentHashMap<Integer, DatagramPacket>();
     private final Lock      lock     = new ReentrantLock();
@@ -55,6 +55,7 @@ public class PointToPointLink extends Thread
         {
             while (toSend.size() == 0)
             {
+                logger.info("Trying to send another batch. Total left: " + toSend.size());
                 try {
                     lock.lock();
                     notEmpty.await();
@@ -65,18 +66,16 @@ public class PointToPointLink extends Thread
                     logger.error("Got exception", e1);
                 }
             }
-            for (Iterator<Map.Entry<Integer, DatagramPacket> > it = toSend.entrySet().iterator(); it.hasNext(); )
+
+            Integer nextKeyToSend;
+            Integer margin = lastAcked;
+            for (nextKeyToSend = margin; nextKeyToSend < margin + 100; nextKeyToSend++)
             {
-                Map.Entry<Integer, DatagramPacket> entry = it.next();
-                if (entry.getKey() <= lastAcked)
-                {
-                    it.remove();
-                }
-                else
-                {
+                DatagramPacket entry = toSend.get(nextKeyToSend);
+                if (entry != null) {
                     try {
                         // logger.info("Sending a packet.. " + entry.getValue().getLength());
-                        clientSocket.send(entry.getValue());
+                        clientSocket.send(entry);
                     }
                     catch (IOException e) {
                         // TODO Auto-generated catch block
@@ -85,7 +84,7 @@ public class PointToPointLink extends Thread
                 }
             }
             try {
-                Thread.sleep(10);
+                Thread.sleep(100);
             }
             catch (InterruptedException e) {
                 // TODO Auto-generated catch block
@@ -125,14 +124,20 @@ public class PointToPointLink extends Thread
     {
         if (msg.getTimestamp() == nextToDeliver)
         {
+            // logger.info("\t\tDelivering " + msg.getTimestamp());
             nextToDeliver++;
             App.rb.deliver(msg);
             sendAck(msg);
+        }
+        else
+        {
+            logger.info("!!! Droppping " + msg.getTimestamp());
         }
     }
 
     public void deliverAck(Ack ack) throws Exception
     {
+        toSend.remove(ack.getTimestamp());
         if (ack.getTimestamp() > lastAcked)
         {
             lastAcked = ack.getTimestamp();
@@ -148,5 +153,10 @@ public class PointToPointLink extends Thread
     public String toString()
     {
         return receiverIP.toString() + ":" + Integer.toString(receiverPort);
+    }
+
+    public Integer getUnAcknowledged()
+    {
+        return this.toSend.size();
     }
 }

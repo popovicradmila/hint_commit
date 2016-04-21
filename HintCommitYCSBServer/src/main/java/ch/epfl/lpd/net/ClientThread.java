@@ -37,7 +37,7 @@ public class ClientThread
 
     public void run(String command, ChannelHandlerContext ctx)
     {
-        logger.info("Command received: " + command);
+        // logger.info("Command received: " + command);
         this.ctx = ctx;
 
         String[] tokens = command.split(",", 3);
@@ -48,7 +48,7 @@ public class ClientThread
             if (tokens.length == 3)
             {
                 WriteCommand c = new WriteCommand(App.store, tokens[1], tokens[2]);
-                c.execute();
+                c.execute(this);
             }
             else
             {
@@ -99,6 +99,11 @@ public class ClientThread
         }
         //printResponse();
         reset();
+    }
+
+    public void writeOk()
+    {
+        ctx.writeAndFlush("w" + "\r\n");
     }
 
     public void reset()
