@@ -190,7 +190,7 @@ public class HintCommitClient extends DB {
             }
             else
             {
-                System.out.println("Cache hit.." + hintRS.toString());
+                // System.out.println("Cache hit.." + hintRS.toString());
                 hintPost = new Post(hintRS, gson);
             }
 

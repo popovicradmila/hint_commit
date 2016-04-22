@@ -91,16 +91,18 @@ public class DBWrapper extends DB
 	    long st = System.nanoTime();
 	    Status res=_db.read(table,key,fields,result);
 		long en=System.nanoTime();
-		measure("READ-COMMIT",ist, st, en);
-	    _measurements.reportStatus("READ-COMMIT",res);
+		measure("READ-BACKEND",ist, st, en);
+	    _measurements.reportStatus("READ-BACKEND",res);
 
         if (res instanceof TimestampedStatus) {
             TimestampedStatus tRes = (TimestampedStatus)res;
             long hintTimestamp = tRes.getHintTimestamp();
-            measure("READ-HINT", ist, st, hintTimestamp);
+            measure("READ-CACHE-STATS", ist, st, hintTimestamp);
 
             if (tRes.getIsDivergent() == true) {
-                measure("READ-DIVERGENT", 0L, 0L, 0L);
+                measure("READ-CACHE-MISS", 0L, 0L, 0L);
+            } else {
+                measure("READ-CACHE-HIT", 0L, 0L, 0L);
             }
         }
 

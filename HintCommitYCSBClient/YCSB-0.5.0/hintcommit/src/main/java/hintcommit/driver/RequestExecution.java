@@ -96,7 +96,7 @@ public class RequestExecution {
         @Override
         public String call() throws Exception
         {
-            String key = command.split(",")[1];
+            String key = command.split(",")[1].trim();
 
             String res = cache.get(key);
             if (res == null) {
